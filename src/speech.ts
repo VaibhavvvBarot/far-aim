@@ -1,13 +1,15 @@
 // Read aloud with the iPad's built-in voices (works offline with downloaded voices).
 import { signal } from '@preact/signals';
+import { aiPlay, aiPause, aiResume, aiStop, aiSetRate, aiPrefs, unlockAudio } from './ai-voice';
 
 export interface Block { el: HTMLElement; text: string }
-export const speaking = signal<{ state: 'idle' | 'playing' | 'paused'; index: number; total: number; sid: string }>({ state: 'idle', index: 0, total: 0, sid: '' });
+export const speaking = signal<{ state: 'idle' | 'playing' | 'paused'; index: number; total: number; sid: string; buffering?: boolean }>({ state: 'idle', index: 0, total: 0, sid: '' });
+export const speechError = signal<string | null>(null);
 
 const RATE_KEY = 'speech';
-interface Prefs { rate: number; voice: string; next: boolean }
+interface Prefs { rate: number; voice: string; next: boolean; engine: 'ai' | 'system' }
 export function speechPrefs(): Prefs {
-  try { return { rate: 1, voice: '', next: false, ...JSON.parse(localStorage.getItem(RATE_KEY) || '{}') }; } catch { return { rate: 1, voice: '', next: false }; }
+  try { return { rate: 1, voice: '', next: false, engine: 'system', ...JSON.parse(localStorage.getItem(RATE_KEY) || '{}') }; } catch { return { rate: 1, voice: '', next: false, engine: 'system' }; }
 }
 export function setSpeechPrefs(p: Partial<Prefs>) {
   try { localStorage.setItem(RATE_KEY, JSON.stringify({ ...speechPrefs(), ...p })); } catch { /* ignore */ }
@@ -62,8 +64,40 @@ let generation = 0;
 
 function clearMarks() { blocks.forEach((b) => b.el.classList.remove('speaking')); }
 
+function markBlock(i: number) {
+  clearMarks();
+  const b = blocks[i];
+  if (!b) return;
+  b.el.classList.add('speaking');
+  b.el.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  speaking.value = { ...speaking.value, index: i };
+}
+function finish() {
+  clearMarks();
+  speaking.value = { state: 'idle', index: 0, total: 0, sid: '' };
+  const f = onFinish; onFinish = null; f?.();
+}
+
+// Which engine reads: the downloaded AI voice, or the iPad's own voices
+export const useAi = () => speechPrefs().engine === 'ai' && aiPrefs().installed;
+
 export function play(sid: string, list: Block[], start = 0, finished?: () => void) {
-  if (!supported || !list.length) return;
+  if (!list.length) return;
+  if (useAi()) {
+    unlockAudio(); // must happen inside the tap
+    stop(false);
+    blocks = list;
+    onFinish = finished || null;
+    speaking.value = { state: 'playing', index: start, total: list.length, sid, buffering: true };
+    aiPlay(list, start, speechPrefs().rate, {
+      onBlock: (i) => markBlock(i),
+      onBuffering: (b) => { if (speaking.value.state !== 'idle') speaking.value = { ...speaking.value, buffering: b }; },
+      onEnd: finish,
+      onError: (e) => { clearMarks(); speaking.value = { state: 'idle', index: 0, total: 0, sid: '' }; speechError.value = e; },
+    });
+    return;
+  }
+  if (!supported) return;
   stop(false);
   blocks = list;
   onFinish = finished || null;
@@ -71,34 +105,32 @@ export function play(sid: string, list: Block[], start = 0, finished?: () => voi
   const voice = pickVoice();
   const { rate } = speechPrefs();
   speaking.value = { state: 'playing', index: start, total: list.length, sid };
-  for (let i = start; i < list.length; i++) {
-    const u = new SpeechSynthesisUtterance(speakable(list[i].text));
-    if (voice) u.voice = voice;
-    u.rate = rate;
-    u.onstart = () => {
-      if (gen !== generation) return;
-      clearMarks();
-      list[i].el.classList.add('speaking');
-      list[i].el.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
-      speaking.value = { ...speaking.value, index: i, state: 'playing' };
-    };
-    u.onend = () => {
-      if (gen !== generation) return;
-      if (i === list.length - 1) {
-        clearMarks();
-        speaking.value = { state: 'idle', index: 0, total: 0, sid: '' };
-        const f = onFinish; onFinish = null; f?.();
-      }
-    };
-    speechSynthesis.speak(u);
-  }
+  // iPadOS forgets the chosen voice if speech starts again straight after a cancel,
+  // so give it a moment before queueing the new utterances.
+  setTimeout(() => {
+    if (gen !== generation) return;
+    for (let i = start; i < list.length; i++) {
+      const u = new SpeechSynthesisUtterance(speakable(list[i].text));
+      if (voice) { u.voice = voice; u.lang = voice.lang; }
+      u.rate = rate;
+      u.onstart = () => { if (gen === generation) { markBlock(i); speaking.value = { ...speaking.value, state: 'playing' }; } };
+      u.onend = () => { if (gen === generation && i === list.length - 1) finish(); };
+      speechSynthesis.speak(u);
+    }
+  }, 180);
 }
-export function pause() { if (supported) { speechSynthesis.pause(); speaking.value = { ...speaking.value, state: 'paused' }; } }
-export function resume() { if (supported) { speechSynthesis.resume(); speaking.value = { ...speaking.value, state: 'playing' }; } }
+export function pause() {
+  if (useAi()) aiPause(); else if (supported) speechSynthesis.pause();
+  speaking.value = { ...speaking.value, state: 'paused' };
+}
+export function resume() {
+  if (useAi()) aiResume(); else if (supported) speechSynthesis.resume();
+  speaking.value = { ...speaking.value, state: 'playing' };
+}
 export function stop(reset = true) {
-  if (!supported) return;
   generation++;
-  speechSynthesis.cancel();
+  aiStop();
+  if (supported) speechSynthesis.cancel();
   clearMarks();
   if (reset) { onFinish = null; speaking.value = { state: 'idle', index: 0, total: 0, sid: '' }; }
 }
@@ -111,7 +143,9 @@ export function jump(delta: number) {
 export function restartAtRate(rate: number) {
   setSpeechPrefs({ rate });
   const s = speaking.value;
-  if (s.state !== 'idle') play(s.sid, blocks, s.index, onFinish || undefined);
+  if (s.state === 'idle') return;
+  if (useAi()) aiSetRate(rate); // the AI voice changes speed instantly, no restart
+  else play(s.sid, blocks, s.index, onFinish || undefined);
 }
 
 // Split rendered section text into readable chunks: paragraphs, list items (without their sub-lists), table rows

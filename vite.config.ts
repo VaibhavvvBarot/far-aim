@@ -9,6 +9,14 @@ export default defineConfig({
     VitePWA({
       registerType: 'prompt',
       injectRegister: null,
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
+      injectManifest: {
+        globPatterns: ['**/*.{js,css,html,json,webp,png,woff2}'],
+        globIgnores: ['ort/**', 'bench/**'],
+        maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
+      },
       includeAssets: ['icons/*.png'],
       manifest: {
         name: 'FAR/AIM',
@@ -26,15 +34,8 @@ export default defineConfig({
           { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
-      workbox: {
-        // Everything, including all regulation packs and AIM figures, is stored for offline use.
-        globPatterns: ['**/*.{js,css,html,json,webp,png,woff2}'],
-        maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
-        ignoreURLParametersMatching: [/^v$/],
-        navigateFallback: 'index.html',
-        cleanupOutdatedCaches: true,
-      },
     }),
   ],
   build: { target: 'safari15', chunkSizeWarningLimit: 800 },
+  worker: { format: 'es' },
 });
