@@ -190,14 +190,17 @@ async function fetchFarPart(title, part, date) {
   const partHead = titleCase(clean($('DIV5').first().children('HEAD').text()).replace(/^PART\s+\S+\s*[—-]\s*/i, ''));
   const sections = [];
   const subparts = [];
-  const visit = (node, subpart) => {
+  const visit = (node, subpart, grp) => {
     $(node).children().each((_, n) => {
       const t = n.name.toUpperCase();
-      if (t === 'DIV6' || t === 'DIV7') {
+      if (t === 'DIV6') {
         const head = clean($(n).children('HEAD').text());
-        const sp = t === 'DIV6' ? { id: $(n).attr('N'), title: titleCase(head) } : subpart;
-        if (t === 'DIV6') subparts.push({ id: sp.id, title: titleCase(head), first: null });
-        visit(n, sp);
+        const sp = { id: $(n).attr('N'), title: titleCase(head) };
+        subparts.push({ id: sp.id, title: sp.title, first: null });
+        visit(n, sp, null);
+      } else if (t === 'DIV7') {
+        // undesignated center heading inside a subpart, e.g. "Visual Flight Rules" in Part 91 Subpart B
+        visit(n, subpart, titleCase(clean($(n).children('HEAD').text())));
       } else if (t === 'DIV8') {
         const num = $(n).attr('N');
         const head = clean($(n).children('HEAD').text()).replace(/^§+\s*[\d.a-zA-Z-]+\s*/, '');
@@ -208,6 +211,7 @@ async function fetchFarPart(title, part, date) {
           id: `${title === 14 ? '' : title + 'cfr'}${num}`,
           doc: title === 14 ? 'far' : 't49',
           num, title: head, part: String(part), sub: subpart ? subpart.id : null,
+          grp: grp || undefined,
           html, reserved,
         };
         sections.push(sec);
@@ -230,10 +234,10 @@ async function fetchFarPart(title, part, date) {
           part: String(part), sub: subpart ? subpart.id : null,
           html: blockXml($, n, lev), appendix: true,
         });
-      } else if (t === 'DIV5') visit(n, subpart);
+      } else if (t === 'DIV5') visit(n, subpart, grp);
     });
   };
-  visit($.root(), null);
+  visit($.root(), null, null);
   return { partTitle: partHead, sections, subparts };
 }
 
@@ -519,7 +523,7 @@ async function main() {
       const file = `${title === 14 ? 'far' : 't49'}-${part}.json`;
       packs.push({ id: `${title}-${part}`, doc: title === 14 ? 'far' : 't49', part: String(part), title: partTitle, file, sections });
       farToc.push({ doc: title === 14 ? 'far' : 't49', part: String(part), title: partTitle, subparts,
-        sections: sections.map((s) => ({ id: s.id, num: s.num, title: s.title, sub: s.sub, reserved: s.reserved || undefined })) });
+        sections: sections.map((s) => ({ id: s.id, num: s.num, title: s.title, sub: s.sub, grp: s.grp, reserved: s.reserved || undefined, app: s.appendix || undefined })) });
       all.push(...sections);
       await sleep(250);
     }

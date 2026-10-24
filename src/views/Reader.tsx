@@ -10,6 +10,11 @@ export const COLORS: { id: Color; name: string }[] = [
   { id: 'yellow', name: 'Yellow' }, { id: 'blue', name: 'Blue' }, { id: 'magenta', name: 'Magenta' }, { id: 'green', name: 'Green' }, { id: 'orange', name: 'Orange' },
 ];
 
+// Reading position per section for this session
+function readPos(): Record<string, number> {
+  try { return JSON.parse(sessionStorage.getItem('readpos') || '{}'); } catch { return {}; }
+}
+
 function officialUrl(s: Section) {
   if (s.doc === 'far') return /^\d/.test(s.num) ? `https://www.ecfr.gov/current/title-14/section-${s.num}` : `https://www.ecfr.gov/current/title-14/part-${s.part}`;
   if (s.doc === 't49') return `https://www.ecfr.gov/current/title-49/section-${s.num}`;
@@ -81,9 +86,13 @@ export function Reader({ id }: { id: string }) {
   // Search terms carried over from Search: highlight and scroll to the first one
   useEffect(() => {
     if (!sec || !body.current) return;
+    const seen = readPos()[id];
     if (findTerm) {
       setFindQ(findTerm);
       setFindOpen(true);
+    } else if (seen != null && scroller.current) {
+      // Coming back to a section you already had open: same spot as before
+      scroller.current.scrollTop = seen;
     } else if (lastRead.value?.id === id && scroller.current) {
       scroller.current.scrollTop = lastRead.value.y;
     } else if (scroller.current) scroller.current.scrollTop = 0;
@@ -117,7 +126,14 @@ export function Reader({ id }: { id: string }) {
     const sc = scroller.current;
     if (!sc) return;
     let t: number | undefined;
-    const on = () => { clearTimeout(t); t = window.setTimeout(() => saveLastRead(id, sc.scrollTop), 400); };
+    const on = () => {
+      clearTimeout(t);
+      t = window.setTimeout(() => {
+        saveLastRead(id, sc.scrollTop);
+        const pos = readPos(); pos[id] = sc.scrollTop;
+        try { sessionStorage.setItem('readpos', JSON.stringify(pos)); } catch { /* ignore */ }
+      }, 250);
+    };
     sc.addEventListener('scroll', on, { passive: true });
     return () => sc.removeEventListener('scroll', on);
   }, [id, sec]);

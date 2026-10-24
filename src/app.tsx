@@ -1,7 +1,8 @@
-import { useEffect } from 'preact/hooks';
-import { route, tab, wide, toast, updateReady, go, type Tab } from './store';
+import { useLayoutEffect, useRef } from 'preact/hooks';
+import { route, wide, toast, updateReady, go, type Tab, type Route } from './store';
 import { Home } from './views/Home';
 import { Browse, PartToc } from './views/Browse';
+import { GuideView } from './views/Guides';
 import { SearchView } from './views/Search';
 import { Reader } from './views/Reader';
 import { WhatsNew, DiffView } from './views/WhatsNew';
@@ -16,18 +17,53 @@ const TABS: { id: Tab; label: string; icon: string; to: string }[] = [
   { id: 'mine', label: 'My stuff', icon: 'bookmark', to: '#/mine' },
   { id: 'settings', label: 'Settings', icon: 'gear', to: '#/settings' },
 ];
+const LIST_ROUTES = new Set(['home', 'browse', 'p', 'g', 'search', 'mine', 'settings', 'new']);
+const tabOf = (n: string): Tab => (n === 'p' || n === 'g' ? 'browse' : (n as Tab));
 
-function paneFor(t: Tab) {
-  switch (t) {
-    case 'browse': {
-      const r = route.value;
-      if (r.name === 'p') return <PartToc part={r.arg} />;
-      // While reading a regulation, keep its Part's contents beside it
-      if (r.name === 's' && wide.value && /^\d/.test(r.arg)) return <PartToc part={r.arg.split(/[.-]/)[0]} />;
-      if (r.name === 's' && wide.value && r.arg.startsWith('49cfr')) return <PartToc part={'49-' + r.arg.slice(5).split(/[.-]/)[0]} />;
-      return <Browse />;
-    }
-    case 'search': return <SearchView />;
+// The last list screen per tab, so a tab comes back exactly as you left it
+const lastList = new Map<Tab, Route>();
+let currentTab: Tab = 'home';
+
+// Scroll positions of list screens, kept for the session
+const scrollMemo: Record<string, number> = (() => { try { return JSON.parse(sessionStorage.getItem('scroll') || '{}'); } catch { return {}; } })();
+let saveTimer: number | undefined;
+const remember = (k: string, y: number) => {
+  scrollMemo[k] = y;
+  clearTimeout(saveTimer);
+  saveTimer = window.setTimeout(() => { try { sessionStorage.setItem('scroll', JSON.stringify(scrollMemo)); } catch { /* ignore */ } }, 300);
+};
+
+function keyOf(r: Route) {
+  if (r.name === 'browse') return 'browse';
+  if (r.name === 'search') return 'search?' + (r.query.get('q') || '');
+  return r.name + '/' + r.arg;
+}
+
+// Puts a list's scroll position back after it re-renders (waits for content to load)
+function useScrollKeeper(ref: { current: HTMLElement | null }, key: string) {
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const target = scrollMemo[key] || 0;
+    let tries = 0;
+    let raf = 0;
+    const put = () => {
+      el.scrollTop = target;
+      if (Math.abs(el.scrollTop - target) > 2 && tries++ < 40) raf = requestAnimationFrame(put);
+    };
+    put();
+    const on = () => remember(key, el.scrollTop);
+    el.addEventListener('scroll', on, { passive: true });
+    return () => { cancelAnimationFrame(raf); el.removeEventListener('scroll', on); };
+  }, [key]);
+}
+
+function pane(r: Route) {
+  switch (r.name) {
+    case 'p': return <PartToc part={r.arg} openSub={r.query.get('sub')} key={'p' + r.arg} />;
+    case 'g': return <GuideView id={r.arg} key={'g' + r.arg} />;
+    case 'browse': return <Browse initial={r.query.get('d')} />;
+    case 'search': return <SearchView urlQ={r.query.get('q') || ''} />;
     case 'mine': return <Mine />;
     case 'settings': return <SettingsView />;
     case 'new': return <WhatsNew />;
@@ -37,40 +73,60 @@ function paneFor(t: Tab) {
 
 export function App() {
   const r = route.value;
-
-  // Keep the left pane in sync with where the user navigated
-  useEffect(() => {
-    const n = r.name;
-    if (n === 'home' || n === 'browse' || n === 'search' || n === 'mine' || n === 'settings' || n === 'new') tab.value = n as Tab;
-    else if (n === 'p') tab.value = 'browse';
-  }, [r.name, r.arg]);
-
   const isDoc = r.name === 's' || r.name === 'diff';
+
+  if (LIST_ROUTES.has(r.name)) {
+    currentTab = tabOf(r.name);
+    lastList.set(currentTab, r);
+  }
+  const curTab = currentTab;
+  // Which list sits beside (or underneath) the reader
+  let listR: Route = lastList.get(curTab) || { name: curTab, arg: '', query: new URLSearchParams() };
+  // On the iPad in landscape, reading a regulation from Browse keeps its Part's contents alongside
+  if (isDoc && wide.value && curTab === 'browse' && r.name === 's' && listR.name === 'browse') {
+    if (/^\d/.test(r.arg)) listR = { name: 'p', arg: r.arg.split(/[.-]/)[0], query: new URLSearchParams() };
+    else if (r.arg.startsWith('49cfr')) listR = { name: 'p', arg: '49-' + r.arg.slice(5).split(/[.-]/)[0], query: new URLSearchParams() };
+  }
+
+  const listRef = useRef<HTMLElement>(null);
+  useScrollKeeper(listRef, keyOf(listR));
+
   const docView = r.name === 's' ? <Reader id={r.arg} key={r.arg} /> : r.name === 'diff' ? <DiffView id={r.arg} key={r.arg} /> : null;
 
-  let body;
-  if (wide.value) {
-    body = (
-      <div class="split">
-        <aside class="pane" aria-label="Navigation">{paneFor(tab.value)}</aside>
-        <main class="doc">{docView || <EmptyReader />}</main>
-      </div>
-    );
-  } else {
-    body = <main class="single">{isDoc ? docView : paneFor(tab.value)}</main>;
-  }
+  const body = wide.value ? (
+    <div class="split">
+      <aside class="pane" aria-label="Navigation" ref={listRef as any}>{pane(listR)}</aside>
+      <main class="doc">{docView || <EmptyReader />}</main>
+    </div>
+  ) : (
+    <main class="single">
+      {/* The list stays mounted under the reader, so going back returns to the same spot */}
+      <div class={'layer list-layer' + (isDoc ? ' under' : '')} ref={listRef as any} aria-hidden={isDoc}>{pane(listR)}</div>
+      {isDoc && <div class="layer doc-layer">{docView}</div>}
+    </main>
+  );
 
   return (
     <div class={'app' + (wide.value ? ' is-wide' : '')}>
       {body}
       <nav class="tabbar" aria-label="Sections">
-        {TABS.map((t) => (
-          <a href={t.to} class={tab.value === t.id && !(isDoc && !wide.value) ? 'on' : ''} aria-current={tab.value === t.id ? 'page' : undefined}
-             onClick={(e) => { if (tab.value === t.id && wide.value && !isDoc) { e.preventDefault(); } }}>
-            <Icon name={t.icon} />
-            <span>{t.label}</span>
-          </a>
-        ))}
+        {TABS.map((t) => {
+          const last = lastList.get(t.id);
+          const on = curTab === t.id && (wide.value || !isDoc);
+          return (
+            <a href={t.to} class={on ? 'on' : ''} aria-current={on ? 'page' : undefined}
+               onClick={(e) => {
+                 e.preventDefault();
+                 // Tapping the tab you're on goes to its start; tapping another returns to where you were in it
+                 if (curTab === t.id && !isDoc) go(t.to);
+                 else if (last) location.hash = '#/' + last.name + (last.arg ? '/' + last.arg : '') + (last.query.toString() ? '?' + last.query.toString() : '');
+                 else go(t.to);
+               }}>
+              <Icon name={t.icon} />
+              <span>{t.label}</span>
+            </a>
+          );
+        })}
       </nav>
       {toast.value && (
         <div class="toast" role="status">
@@ -92,7 +148,7 @@ function EmptyReader() {
   return (
     <div class="empty-reader">
       <p class="empty-title">Pick a section to read</p>
-      <p>Type a number like <button class="linkish" onClick={() => go('s/91.155')}>91.155</button>, <button class="linkish" onClick={() => go('s/aim-3-2-4')}>3-2-4</button> or a few words into search.</p>
+      <p>Type a number like <button class="linkish" onClick={() => go('s/91.155')}>91.155</button>, <button class="linkish" onClick={() => go('s/aim-3-2-4')}>3-2-4</button> or a few words into search, or start from a certificate guide in Browse.</p>
     </div>
   );
 }

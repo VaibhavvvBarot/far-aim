@@ -338,3 +338,44 @@ del { background: var(--del-bg); color: var(--del); border-radius: 2px; }
   .sheet { max-width: none; padding: 0; font-size: 11pt; }
   mark.hl { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+
+/* ---------- layered single view (list stays under the reader) ---------- */
+.single { position: relative; overflow: hidden; padding-bottom: 0; }
+.layer { position: absolute; inset: 0; overflow: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+.list-layer { padding-bottom: calc(var(--tab-h) + env(safe-area-inset-bottom) + 12px); }
+.list-layer.under { visibility: hidden; pointer-events: none; }
+.doc-layer { overflow: hidden; display: flex; flex-direction: column; background: var(--surface); padding-bottom: calc(var(--tab-h) + env(safe-area-inset-bottom)); }
+.doc-layer > .reader { flex: 1; min-height: 0; }
+
+/* ---------- part contents ---------- */
+.head-text { min-width: 0; }
+.toc-tools { display: flex; align-items: center; gap: 12px; padding: 0 20px 10px; }
+.filter-input.inline { margin: 0; flex: 1; width: auto; }
+.sp { border-bottom: 1px solid var(--rule); }
+.sp-row { display: flex; align-items: center; gap: 14px; width: 100%; padding: 14px 20px; min-height: 64px; text-align: left; }
+.sp-row:active { background: color-mix(in srgb, var(--far) 8%, transparent); }
+.sp-letter { flex: none; width: 38px; height: 38px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 18px; color: var(--far); border: 1.5px solid color-mix(in srgb, var(--far) 45%, transparent); }
+.sp-letter.none { border-style: dashed; }
+.sp.open .sp-letter { background: var(--far); color: var(--bg); border-color: var(--far); }
+.sp-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.sp-title { font-weight: 700; font-size: 17px; line-height: 1.25; }
+.sp-meta { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+.sp-row .icon { color: var(--muted); }
+.sp-list { margin: 0 0 8px 39px; border-left: 2px solid color-mix(in srgb, var(--far) 35%, transparent); }
+.sp-list li > a { padding-left: 16px; }
+.sp-list li:last-child > a { border-bottom: 0; }
+.grp-h { padding: 14px 16px 4px; font-size: 14px; font-weight: 700; color: var(--far); border-bottom: 1px solid var(--rule); }
+.sub-count { display: block; font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+/* ---------- guides ---------- */
+.list-h { font-size: 15px; font-weight: 700; color: var(--muted); margin: 0; padding: 18px 20px 6px; border-bottom: 1px solid var(--rule); }
+.guide-row { display: flex !important; flex-direction: column; gap: 2px; }
+.g-title { font-weight: 700; font-size: 17px; }
+.g-blurb { color: var(--muted); font-size: 15px; }
+.guide .list li > a[data-doc='aim'] .num { color: var(--aim); }
+.guide .list li.is-group > a { background: color-mix(in srgb, var(--far) 6%, transparent); }
+.guide-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip.strong { border-color: color-mix(in srgb, var(--far) 40%, transparent); color: var(--far); font-weight: 700; }
+.parts .icon { color: var(--muted); align-self: center; }
+/* An open subpart's header stays pinned while you scroll its sections */
+.sp.open > .sp-row { position: sticky; top: 0; z-index: 3; background: color-mix(in srgb, var(--bg) 94%, transparent); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid var(--rule); }

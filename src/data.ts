@@ -26,7 +26,7 @@ export interface Manifest {
   newChanges: number;
   packs: PackMeta[];
 }
-export interface TocSection { id: string; num: string; title: string; sub?: string | null; reserved?: boolean }
+export interface TocSection { id: string; num: string; title: string; sub?: string | null; grp?: string; reserved?: boolean; app?: boolean }
 export interface TocPart { doc: string; part: string; title: string; subparts: { id: string; title: string; first: string | null }[]; sections: TocSection[] }
 export interface TocAim { ch: string; title: string; sections: { id: string; num: string; title: string; paras: { id: string; num: string; title: string }[] }[] }
 export interface Toc { far: TocPart[]; t49: TocPart[]; aim: TocAim[]; pcg: { id: string; title: string }[] }

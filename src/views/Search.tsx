@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { search, searchIndex, parseJump, indexReady, label, docName, type Hit, type DocFilter } from '../data';
-import { route, go } from '../store';
+import { go } from '../store';
 import { kv } from '../db';
 import { Icon } from '../icons';
 
@@ -25,8 +25,7 @@ const FILTERS: { id: DocFilter; label: string }[] = [
   { id: 'all', label: 'All' }, { id: 'far', label: 'FAR' }, { id: 'aim', label: 'AIM' }, { id: 'pcg', label: 'Glossary' },
 ];
 
-export function SearchView() {
-  const urlQ = route.value.name === 'search' ? route.value.query.get('q') || '' : '';
+export function SearchView({ urlQ }: { urlQ: string }) {
   const [q, setQ] = useState(urlQ);
   const [filter, setFilter] = useState<DocFilter>('all');
   const [titles, setTitles] = useState(false);

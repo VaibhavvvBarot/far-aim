@@ -62,6 +62,15 @@ export function Home() {
       )}
 
       <section class="block">
+        <div class="block-head"><h2>Study by certificate</h2><a href="#/browse?d=guides">All guides</a></div>
+        <div class="guide-chips">
+          {[['student', 'Student'], ['private', 'Private'], ['instrument', 'Instrument'], ['commercial', 'Commercial'], ['cfi', 'CFI'], ['remote', 'Drone']].map(([id, l]) => (
+            <a class="chip strong" href={`#/g/${id}`}>{l}</a>
+          ))}
+        </div>
+      </section>
+
+      <section class="block">
         <div class="block-head">
           <h2>What's new</h2>
           <a href="#/new">See all</a>
