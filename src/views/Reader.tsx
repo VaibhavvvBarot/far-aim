@@ -4,7 +4,8 @@ import { annotations, saveAnnotation, deleteAnnotation, recordVisit, saveLastRea
 import { uid, type Color, type Highlight, type Bookmark, type SectionNote } from '../db';
 import { describeSelection, fullText, locate, wrapRange, unwrapAll, markAll } from '../highlight';
 import { markDefinitions, getDef, type Def } from '../defs';
-import { speaking, play, pause, resume, stop, jump, restartAtRate, collectBlocks, speechPrefs, supported as canSpeak } from '../speech';
+import { speaking, play, pause, resume, stop, jump, restartAtRate, collectBlocks, speechPrefs, supported as canSpeak, useAi, speechError } from '../speech';
+import { aiStatus } from '../ai-voice';
 import { Sheet } from '../sheet';
 import { fmtDate } from './Home';
 import { Icon } from '../icons';
@@ -203,6 +204,7 @@ export function Reader({ id }: { id: string }) {
     });
   }
   const sp = speaking.value;
+  useEffect(() => { if (speechError.value) { showToast('Read aloud stopped: ' + speechError.value); speechError.value = null; } }, [speechError.value]);
   const speakingHere = sp.sid === id && sp.state !== 'idle';
 
   // Keyboard shortcuts (sent from the app shell)
@@ -297,7 +299,7 @@ export function Reader({ id }: { id: string }) {
         <span class="bar-label">{docName(sec.doc)}{sec.part && sec.doc !== 'pcg' && sec.doc !== 'aim' ? ` Part ${sec.part}` : ''}</span>
         <span class="spacer" />
         {outline.length >= 3 && <button class="icon-btn" aria-label="Outline of this section" aria-pressed={showOutline} onClick={() => { setShowOutline(!showOutline); setShowText(false); }}><Icon name="outline" /></button>}
-        {canSpeak && <button class={'icon-btn' + (speakingHere ? ' active' : '')} aria-label={speakingHere ? 'Stop reading aloud' : 'Read aloud'} aria-pressed={speakingHere} onClick={() => (speakingHere ? stop() : startSpeaking())}><Icon name="speaker" /></button>}
+        {(canSpeak || useAi()) && <button class={'icon-btn' + (speakingHere ? ' active' : '')} aria-label={speakingHere ? 'Stop reading aloud' : 'Read aloud'} aria-pressed={speakingHere} onClick={() => (speakingHere ? stop() : startSpeaking())}><Icon name="speaker" /></button>}
         <button class="icon-btn" aria-label="Find in this section" aria-pressed={findOpen} onClick={() => { setFindOpen(!findOpen); if (findOpen) setFindQ(''); }}><Icon name="find" /></button>
         <button class="icon-btn" aria-label="Text size" aria-pressed={showText} onClick={() => { setShowText(!showText); setShowOutline(false); }}><Icon name="text" /></button>
         <button class="icon-btn" aria-label={note ? 'Edit note' : 'Add a note'} onClick={() => setNoteDraft(note?.note || '')}><Icon name="note" /></button>
@@ -390,7 +392,7 @@ export function Reader({ id }: { id: string }) {
           <button class="icon-btn" aria-label="Previous paragraph" onClick={() => jump(-1)}><Icon name="rewind" /></button>
           <button class="icon-btn play" aria-label={sp.state === 'playing' ? 'Pause' : 'Resume'} onClick={() => (sp.state === 'playing' ? pause() : resume())}><Icon name={sp.state === 'playing' ? 'pause' : 'play'} /></button>
           <button class="icon-btn" aria-label="Next paragraph" onClick={() => jump(1)}><Icon name="forward" /></button>
-          <span class="speech-pos">{sp.index + 1} of {sp.total}</span>
+          <span class="speech-pos">{sp.buffering && aiStatus.value.state === 'loading' ? `Loading voice ${aiStatus.value.pct}%` : sp.buffering ? 'Preparing…' : `${sp.index + 1} of ${sp.total}`}</span>
           <button class="bar-btn" aria-label="Reading speed" onClick={() => restartAtRate(RATES[(RATES.indexOf(rate) + 1) % RATES.length] || 1)}>{rate}×</button>
           <button class="icon-btn" aria-label="Stop reading" onClick={() => stop()}><Icon name="close" /></button>
         </div>

@@ -12,6 +12,17 @@ import { registerSW } from 'virtual:pwa-register';
 import { searchIndex } from './data';
 
 loadState();
+
+// The AI voice runs much faster with cross-origin isolation (all CPU cores). Our service worker adds the
+// headers, but only to pages it served; if this launch came straight from the network, reload once.
+try {
+  const ai = JSON.parse(localStorage.getItem('aivoice') || '{}');
+  const eng = JSON.parse(localStorage.getItem('speech') || '{}');
+  if (ai.installed && eng.engine === 'ai' && !self.crossOriginIsolated && navigator.serviceWorker?.controller && !sessionStorage.getItem('coi-reload')) {
+    sessionStorage.setItem('coi-reload', '1');
+    location.reload();
+  }
+} catch { /* ignore */ }
 persist();
 render(<App />, document.getElementById('app')!);
 
