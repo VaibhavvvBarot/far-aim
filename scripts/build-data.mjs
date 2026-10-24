@@ -443,6 +443,28 @@ function linkOutsideTags(html, fn) {
   return html.split(/(<a\b[^>]*>.*?<\/a>|<[^>]+>)/s).map((chunk) => (chunk.startsWith('<') ? chunk : fn(chunk))).join('');
 }
 
+// ---------- definitions (14 CFR 1.1) for tap-to-define ----------
+// Words so common that underlining them would be noise
+const TOO_COMMON = new Set(['administrator', 'aircraft', 'airplane', 'person', 'united states', 'approved', 'category', 'class', 'state', 'air commerce', 'type', 'rating', 'instrument', 'airport', 'appliance', 'propeller', 'balloon', 'glider', 'helicopter', 'airship', 'rotorcraft', 'powered-lift', 'airframe', 'kite', 'rocket']);
+function extractDefinitions(sec) {
+  if (!sec) return [];
+  const paras = sec.html.match(/<p class="l\d">.*?<\/p>/gs) || [];
+  const out = [];
+  for (const p of paras) {
+    const m = p.match(/^<p class="l\d"><em>(.*?)<\/em>/);
+    if (m) {
+      const raw = cheerio.load(m[1]).text().trim().replace(/[.,:;]+$/, '');
+      const name = raw.replace(/\s*\([^)]*\)\s*$/, '').trim();
+      out.push({ term: raw, match: name, html: p });
+    } else if (out.length) {
+      out.at(-1).html += p; // continuation paragraphs (a), (1) belong to the term above
+    }
+  }
+  return out
+    .filter((d) => d.match.length > 2 && !TOO_COMMON.has(d.match.toLowerCase()))
+    .map((d) => ({ term: d.term, match: d.match, html: d.html.replace(/<a [^>]*>(.*?)<\/a>/g, '$1') }));
+}
+
 // ---------- diffs ----------
 function compactDiff(a, b) {
   const parts = diffWordsWithSpace(a, b);
@@ -595,6 +617,7 @@ async function main() {
   }
   await writeJSON(path.join(OUT, 'toc.json'), { far: farToc.filter((t) => t.doc === 'far'), t49: farToc.filter((t) => t.doc === 't49'), aim: aimToc, pcg: pcg.map((t) => ({ id: t.id, title: t.title })) });
   await writeJSON(path.join(OUT, 'changes.json'), changes);
+  await writeJSON(path.join(OUT, 'defs.json'), extractDefinitions(all.find((s) => s.id === '1.1')));
   const manifest = {
     version: hash(manifestPacks.map((p) => p.hash).join('')),
     builtAt: new Date().toISOString(),

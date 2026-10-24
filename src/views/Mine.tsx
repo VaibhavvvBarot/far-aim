@@ -48,7 +48,7 @@ export function Mine() {
 
   return (
     <div class="mine">
-      <header class="pane-head"><h1>My stuff</h1></header>
+      <header class="pane-head"><h1>My stuff</h1>{counts.hl > 0 && <a class="btn small-btn review-btn" href="#/review"><Icon name="cards" size={18} /> Review</a>}</header>
       <div class="filters" role="tablist">
         <button role="tab" aria-selected={kind === 'hl'} class={'seg' + (kind === 'hl' ? ' on' : '')} onClick={() => setKind('hl')}>Highlights {counts.hl || ''}</button>
         <button role="tab" aria-selected={kind === 'bm'} class={'seg' + (kind === 'bm' ? ' on' : '')} onClick={() => setKind('bm')}>Bookmarks {counts.bm || ''}</button>

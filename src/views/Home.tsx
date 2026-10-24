@@ -4,6 +4,8 @@ import { history, lastRead, go } from '../store';
 import { kv } from '../db';
 import { Omnibox } from './Search';
 import { Icon } from '../icons';
+import { dueCount } from './Review';
+import { annotations } from '../store';
 
 const CHIPS: { label: string; to: string }[] = [
   { label: 'Part 91', to: 'p/91' },
@@ -35,6 +37,9 @@ export function Home() {
       setUnseen(list.filter((c) => c.date > seen));
     })();
   }, []);
+  const [due, setDue] = useState<number | null>(null);
+  const hlCount = annotations.value.filter((a) => a.type === 'hl').length;
+  useEffect(() => { dueCount().then(setDue); }, [hlCount]);
   const recent = history.value.slice(0, 6);
   const lr = lastRead.value && history.value.find((h) => h.id === lastRead.value!.id);
 
@@ -58,6 +63,17 @@ export function Home() {
           <span class="continue-k">Continue reading</span>
           <span class="continue-num">{label(lr)}</span>
           <span class="continue-title">{lr.title}</span>
+        </a>
+      )}
+
+      {hlCount > 0 && (
+        <a class="review-card" href="#/review">
+          <Icon name="cards" size={26} />
+          <span class="rc-text">
+            <span class="rc-title">{due ? `${due} ${due === 1 ? 'card' : 'cards'} to review` : 'Review your highlights'}</span>
+            <span class="rc-sub">{due ? 'Flashcards from your highlights' : 'All caught up. Practise any time.'}</span>
+          </span>
+          <Icon name="chevron" size={18} />
         </a>
       )}
 

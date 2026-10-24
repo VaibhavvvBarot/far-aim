@@ -2,7 +2,9 @@ import { useEffect, useState } from 'preact/hooks';
 import { manifest, type Manifest } from '../data';
 import { settings, annotations, refreshAnnotations, showToast, history, type Theme } from '../store';
 import { ann, kv, persist, type Annotation } from '../db';
+import { loadSrs, saveSrs } from '../srs';
 import { fmtDate } from './Home';
+import { voices, speechPrefs, setSpeechPrefs, supported as canSpeak, play, stop } from '../speech';
 
 const THEMES: { id: Theme; label: string }[] = [
   { id: 'auto', label: 'Match iPad' }, { id: 'light', label: 'Light' }, { id: 'sepia', label: 'Sepia' }, { id: 'dark', label: 'Dark' }, { id: 'night', label: 'Night red' },
@@ -19,9 +21,18 @@ export function SettingsView() {
     navigator.storage?.persisted?.().then(setPersisted);
   }, []);
   const set = (p: Partial<typeof s>) => (settings.value = { ...s, ...p });
+  const [vlist, setVlist] = useState<SpeechSynthesisVoice[]>(canSpeak ? voices() : []);
+  const [sp, setSp] = useState(speechPrefs());
+  useEffect(() => {
+    if (!canSpeak) return;
+    const on = () => setVlist(voices());
+    speechSynthesis.addEventListener('voiceschanged', on);
+    return () => speechSynthesis.removeEventListener('voiceschanged', on);
+  }, []);
+  const setSpeech = (p: Partial<typeof sp>) => { setSpeechPrefs(p); setSp(speechPrefs()); };
 
-  const exportBackup = () => {
-    const data = { app: 'far-aim', version: 1, exported: new Date().toISOString(), annotations: annotations.value, history: history.value };
+  const exportBackup = async () => {
+    const data = { app: 'far-aim', version: 1, exported: new Date().toISOString(), annotations: annotations.value, history: history.value, flashcards: await loadSrs() };
     const blob = new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -36,6 +47,7 @@ export function SettingsView() {
       if (data.app !== 'far-aim' || !Array.isArray(data.annotations)) throw new Error('not a backup');
       let n = 0;
       for (const a of data.annotations as Annotation[]) { await ann.put(a); n++; }
+      if (data.flashcards) await saveSrs({ ...(await loadSrs()), ...data.flashcards });
       await refreshAnnotations();
       showToast(`Restored ${n} items from the backup`);
     } catch {
@@ -63,6 +75,42 @@ export function SettingsView() {
         <label class="field"><span class="field-l">Line spacing <b>{s.lineHeight.toFixed(2)}</b></span>
           <input type="range" min="1.3" max="2" step="0.05" value={s.lineHeight} onInput={(e) => set({ lineHeight: +(e.target as HTMLInputElement).value })} /></label>
         <p class="preview-text" style={{ fontSize: s.size + 'px', lineHeight: s.lineHeight }}>(a) No person may operate an aircraft under VFR when the flight visibility is less than that prescribed.</p>
+      </section>
+
+      {canSpeak && (
+        <section class="block">
+          <h2>Read aloud</h2>
+          <label class="field"><span class="field-l">Voice</span>
+            <select class="select" value={sp.voice} onChange={(e) => setSpeech({ voice: (e.target as HTMLSelectElement).value })}>
+              <option value="">Best available English voice</option>
+              {vlist.map((v) => <option value={v.voiceURI}>{v.name} ({v.lang})</option>)}
+            </select>
+          </label>
+          <label class="field"><span class="field-l">Speed <b>{sp.rate}×</b></span>
+            <input type="range" min="0.6" max="2" step="0.1" value={sp.rate} onInput={(e) => setSpeech({ rate: +(e.target as HTMLInputElement).value })} /></label>
+          <label class="toggle left"><input type="checkbox" checked={sp.next} onChange={(e) => setSpeech({ next: (e.target as HTMLInputElement).checked })} /> Keep reading into the next section</label>
+          <div class="row-actions">
+            <button class="btn ghost" onClick={() => {
+              const el = document.querySelector('.preview-text') as HTMLElement;
+              play('settings', [{ el, text: el.textContent || '' }], 0, () => stop());
+            }}>Try this voice</button>
+          </div>
+          <p class="muted small">For the most natural sound, download an Enhanced or Premium voice on the iPad: Settings, Accessibility, Spoken Content, Voices. Reading stops if the iPad locks.</p>
+        </section>
+      )}
+
+      <section class="block">
+        <h2>Keyboard shortcuts</h2>
+        <dl class="keys">
+          <dt>⌘K or /</dt><dd>Search</dd>
+          <dt>⌘F</dt><dd>Find in this section</dd>
+          <dt>← →</dt><dd>Previous and next section</dd>
+          <dt>⌘[</dt><dd>Back</dd>
+          <dt>R</dt><dd>Read aloud, pause, resume</dd>
+          <dt>B</dt><dd>Bookmark</dd>
+          <dt>Space, 1 to 4</dt><dd>Flip and grade a flashcard</dd>
+          <dt>Esc</dt><dd>Close</dd>
+        </dl>
       </section>
 
       <section class="block">

@@ -1,4 +1,5 @@
-import { useLayoutEffect, useRef } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
+import type { VNode } from 'preact';
 import { route, wide, toast, updateReady, go, type Tab, type Route } from './store';
 import { Home } from './views/Home';
 import { Browse, PartToc } from './views/Browse';
@@ -8,6 +9,7 @@ import { Reader } from './views/Reader';
 import { WhatsNew, DiffView } from './views/WhatsNew';
 import { Mine } from './views/Mine';
 import { SettingsView } from './views/Settings';
+import { Review } from './views/Review';
 import { Icon } from './icons';
 
 const TABS: { id: Tab; label: string; icon: string; to: string }[] = [
@@ -18,6 +20,7 @@ const TABS: { id: Tab; label: string; icon: string; to: string }[] = [
   { id: 'settings', label: 'Settings', icon: 'gear', to: '#/settings' },
 ];
 const LIST_ROUTES = new Set(['home', 'browse', 'p', 'g', 'search', 'mine', 'settings', 'new']);
+// 'review' opens like a reader page (over the list on narrow screens, on the right on wide ones)
 const tabOf = (n: string): Tab => (n === 'p' || n === 'g' ? 'browse' : (n as Tab));
 
 // The last list screen per tab, so a tab comes back exactly as you left it
@@ -73,7 +76,9 @@ function pane(r: Route) {
 
 export function App() {
   const r = route.value;
-  const isDoc = r.name === 's' || r.name === 'diff';
+  const isDoc = r.name === 's' || r.name === 'diff' || r.name === 'review';
+  const [, rerender] = useState(0);
+  const docRef = useRef<HTMLDivElement>(null);
 
   if (LIST_ROUTES.has(r.name)) {
     currentTab = tabOf(r.name);
@@ -91,18 +96,116 @@ export function App() {
   const listRef = useRef<HTMLElement>(null);
   useScrollKeeper(listRef, keyOf(listR));
 
-  const docView = r.name === 's' ? <Reader id={r.arg} key={r.arg} /> : r.name === 'diff' ? <DiffView id={r.arg} key={r.arg} /> : null;
+  const docView = r.name === 's' ? <Reader id={r.arg} key={r.arg} /> : r.name === 'diff' ? <DiffView id={r.arg} key={r.arg} /> : r.name === 'review' ? <Review key="review" /> : null;
+
+  // Page transitions on the narrow layout: the reader slides in over the list and slides
+  // back out when you go back. The outgoing page stays mounted for the slide-out.
+  const mem = useRef({ lastDoc: null as VNode | null, wasDoc: isDoc, leaveUntil: 0, skip: false, first: true });
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (isDoc) mem.current.lastDoc = docView;
+  if (!isDoc && mem.current.wasDoc && !wide.value) {
+    mem.current.leaveUntil = mem.current.skip || reduce ? 0 : Date.now() + 260;
+    mem.current.skip = false;
+  }
+  mem.current.wasDoc = isDoc;
+  const leaving = !isDoc && Date.now() < mem.current.leaveUntil ? mem.current.lastDoc : null;
+  useEffect(() => {
+    if (leaving) { const t = setTimeout(() => rerender((n) => n + 1), 270); return () => clearTimeout(t); }
+  }, [leaving]);
+  const animate = !mem.current.first && !reduce;
+  useEffect(() => { mem.current.first = false; }, []);
+
+  const back = () => {
+    if (history.length > 1) history.back();
+    else { const l = lastList.get(curTab); location.hash = l ? '#/' + l.name + (l.arg ? '/' + l.arg : '') : '#/'; }
+  };
+
+  // Swipe from the left edge to go back (home-screen apps don't get Safari's gesture)
+  const swipe = useRef<{ x: number; y: number; t: number; dx: number; on: boolean } | null>(null);
+  const onTouchStart = (e: TouchEvent) => {
+    const x = e.touches[0].clientX - (docRef.current?.getBoundingClientRect().left || 0);
+    swipe.current = x <= 28 ? { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now(), dx: 0, on: false } : null;
+  };
+  const onTouchMove = (e: TouchEvent) => {
+    const s = swipe.current;
+    const el = docRef.current;
+    if (!s || !el) return;
+    const dx = e.touches[0].clientX - s.x, dy = e.touches[0].clientY - s.y;
+    if (!s.on) {
+      if (Math.abs(dy) > Math.abs(dx) || dx < 6) { if (Math.abs(dy) > 10) swipe.current = null; return; }
+      s.on = true;
+    }
+    s.dx = Math.max(0, dx);
+    if (e.cancelable) e.preventDefault();
+    el.style.transition = 'none';
+    el.style.transform = `translateX(${s.dx}px)`;
+    const list = listRef.current;
+    if (list && !wide.value) {
+      list.style.visibility = 'visible';
+      list.style.animation = 'none';
+      list.style.transform = `translateX(${-24 + (s.dx / el.clientWidth) * 24}%)`;
+    }
+  };
+  const onTouchEnd = () => {
+    const s = swipe.current;
+    const el = docRef.current;
+    swipe.current = null;
+    if (!s || !s.on || !el) return;
+    const list = listRef.current;
+    const w = el.clientWidth;
+    const fast = s.dx / Math.max(1, Date.now() - s.t) > 0.5;
+    const goBack = s.dx > w * 0.33 || (fast && s.dx > 40);
+    el.style.transition = 'transform .2s ease-out';
+    el.style.transform = goBack ? `translateX(${w}px)` : '';
+    if (list && !wide.value) { list.style.transition = 'transform .2s ease-out'; list.style.transform = goBack ? 'translateX(0)' : ''; }
+    setTimeout(() => {
+      if (goBack) { mem.current.skip = true; back(); }
+      el.style.transition = ''; el.style.transform = '';
+      if (list) { list.style.transition = ''; list.style.transform = ''; list.style.visibility = ''; list.style.animation = ''; }
+    }, goBack ? 200 : 210);
+  };
+  // Keyboard shortcuts for when the iPad has a keyboard attached
+  useEffect(() => {
+    const on = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement;
+      const typing = t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable;
+      const mod = e.metaKey || e.ctrlKey;
+      const send = (a: string) => window.dispatchEvent(new CustomEvent('far:key', { detail: a }));
+      const reading = route.value.name === 's';
+      if ((mod && e.key.toLowerCase() === 'k') || (!typing && e.key === '/')) {
+        e.preventDefault();
+        go('search');
+        setTimeout(() => { const i = document.querySelector('.search .omni input') as HTMLInputElement | null; i?.focus(); i?.select(); }, 60);
+      } else if (mod && e.key.toLowerCase() === 'f' && reading) { e.preventDefault(); send('find'); }
+      else if ((mod && e.key === '[') || (e.altKey && e.key === 'ArrowLeft')) { e.preventDefault(); back(); }
+      else if (e.key === 'Escape') send('escape');
+      else if (!typing && !mod && !e.altKey && reading) {
+        if (e.key === 'ArrowRight') { e.preventDefault(); send('next'); }
+        else if (e.key === 'ArrowLeft') { e.preventDefault(); send('prev'); }
+        else if (e.key.toLowerCase() === 'r') send('speak');
+        else if (e.key.toLowerCase() === 'b') send('bookmark');
+      }
+    };
+    window.addEventListener('keydown', on);
+    return () => window.removeEventListener('keydown', on);
+  });
+
+  const swipeProps = { onTouchStart, onTouchMove, onTouchEnd, onTouchCancel: onTouchEnd } as any;
 
   const body = wide.value ? (
     <div class="split">
       <aside class="pane" aria-label="Navigation" ref={listRef as any}>{pane(listR)}</aside>
-      <main class="doc">{docView || <EmptyReader />}</main>
+      <main class="doc" ref={docRef as any} {...(docView ? swipeProps : {})}>{docView || <EmptyReader />}</main>
     </div>
   ) : (
     <main class="single">
       {/* The list stays mounted under the reader, so going back returns to the same spot */}
-      <div class={'layer list-layer' + (isDoc ? ' under' : '')} ref={listRef as any} aria-hidden={isDoc}>{pane(listR)}</div>
-      {isDoc && <div class="layer doc-layer">{docView}</div>}
+      <div class={'layer list-layer' + (isDoc ? (animate ? ' under anim' : ' under') : '') + (leaving ? ' returning' : '')} ref={listRef as any} aria-hidden={isDoc}>{pane(listR)}</div>
+      {(isDoc || leaving) && (
+        <div ref={docRef} class={'layer doc-layer' + (leaving ? ' leaving' : animate ? ' entering' : '')} {...swipeProps}>
+          {isDoc ? docView : leaving}
+        </div>
+      )}
     </main>
   );
 

@@ -20,13 +20,20 @@ const P: Record<string, string> = {
   copy: 'M8 8h11v12H8zM5 16V4h11',
   print: 'M7 9V4h10v5M6 17H4v-7h16v7h-2M7 14h10v6H7z',
   plane: 'M21 15.5 13 11V5.5a1.5 1.5 0 0 0-3 0V11l-8 4.5V17l8-2.3V19l-2.2 1.6V22l3.7-1 3.7 1v-1.4L13 19v-4.3l8 2.3z',
+  outline: 'M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01',
+  speaker: 'M4 9.5h3.5L12 5.5v13l-4.5-4H4zM15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11',
+  play: 'M8 5.5v13l10.5-6.5z',
+  pause: 'M8 5.5h3v13H8zM13.5 5.5h3v13h-3z',
+  rewind: 'M11.5 7 6 12l5.5 5M18 7l-5.5 5 5.5 5',
+  forward: 'M12.5 7l5.5 5-5.5 5M6 7l5.5 5L6 17',
+  cards: 'M7 4.5h10a1.5 1.5 0 0 1 1.5 1.5v13A1.5 1.5 0 0 1 17 20.5H7A1.5 1.5 0 0 1 5.5 19V6A1.5 1.5 0 0 1 7 4.5zM9 9h6M9 12.5h4',
   new: 'M12 4v4M12 16v4M4 12h4M16 12h4M6.3 6.3l2.8 2.8M14.9 14.9l2.8 2.8M6.3 17.7l2.8-2.8M14.9 9.1l2.8-2.8',
 };
 export function Icon({ name, size = 22 }: { name: string; size?: number }) {
-  const fill = name === 'bookmarkFill' || name === 'plane';
+  const fill = name === 'bookmarkFill' || name === 'plane' || name === 'play' || name === 'pause';
   return (
     <svg class="icon" width={size} height={size} viewBox="0 0 24 24" aria-hidden="true"
-      fill={fill ? 'currentColor' : 'none'} stroke={fill && name === 'plane' ? 'none' : 'currentColor'} stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      fill={fill ? 'currentColor' : 'none'} stroke={fill && name !== 'bookmarkFill' ? 'none' : 'currentColor'} stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
       <path d={P[name] || ''} />
     </svg>
   );

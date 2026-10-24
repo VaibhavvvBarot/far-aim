@@ -1,5 +1,10 @@
-# Every night: check the eCFR and FAA for new text, commit any changes
-# (with word-level diffs), rebuild the app and publish it to GitHub Pages.
+# Every night: check the eCFR and FAA for new text, validate it, commit any
+# changes (with word-level diffs), rebuild the app, smoke-test it and publish
+# it to GitHub Pages.
+#
+# Safety net: if the fetch fails or the new data looks wrong, yesterday's data
+# is kept, a GitHub issue is opened, and the run is marked failed (GitHub emails
+# you). If the built app fails its smoke test, nothing is published.
 name: Nightly update and publish
 
 on:
@@ -10,7 +15,7 @@ on:
   workflow_dispatch:
     inputs:
       force:
-        description: 'Rebuild all regulation data even if nothing changed'
+        description: 'Rebuild all regulation data even if nothing changed (also allows many changes at once)'
         type: boolean
         default: false
 
@@ -18,6 +23,7 @@ permissions:
   contents: write
   pages: write
   id-token: write
+  issues: write
 
 concurrency:
   group: publish
@@ -34,12 +40,47 @@ jobs:
           cache: npm
       - run: npm ci
 
+      - name: Remember the last good data
+        run: cp public/data/manifest.json "$RUNNER_TEMP/prev-manifest.json" || true
+
       - name: Fetch regulations, AIM and glossary
+        id: fetch
         if: github.event_name != 'push'
+        continue-on-error: true
         run: node scripts/build-data.mjs ${{ inputs.force && '--force' || '' }}
 
+      - name: Validate new data
+        id: validate
+        if: github.event_name != 'push' && steps.fetch.outcome == 'success'
+        continue-on-error: true
+        run: node scripts/validate-data.mjs "$RUNNER_TEMP/prev-manifest.json" ${{ inputs.force && '--force' || '' }}
+
+      - name: Keep yesterday's data if anything went wrong
+        id: rollback
+        if: steps.fetch.outcome == 'failure' || steps.validate.outcome == 'failure'
+        run: |
+          git checkout -- public
+          git clean -fdq public
+          echo "rolled_back=true" >> "$GITHUB_OUTPUT"
+
+      - name: Open an issue about it
+        if: steps.rollback.outputs.rolled_back == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          body="The nightly update on $(date -u +%Y-%m-%d) was not published; the app keeps the previous data.
+
+          Fetch step: ${{ steps.fetch.outcome }}
+          Validation step: ${{ steps.validate.outcome }}
+
+          $(cat validation-problems.txt 2>/dev/null || echo 'See the run log for details.')
+
+          Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          existing=$(gh issue list --state open --search "Nightly update problem in:title" --json number --jq '.[0].number')
+          if [ -n "$existing" ]; then gh issue comment "$existing" --body "$body"; else gh issue create --title "Nightly update problem" --body "$body"; fi
+
       - name: Commit data changes
-        if: github.event_name != 'push'
+        if: github.event_name != 'push' && steps.rollback.outputs.rolled_back != 'true'
         run: |
           if [ -n "$(git status --porcelain public)" ]; then
             git config user.name "far-aim-bot"
@@ -54,12 +95,26 @@ jobs:
       - name: Build app
         run: npm run build
 
+      - name: Smoke test the built app
+        run: |
+          npm i --no-save playwright@1.63.0
+          npx playwright install --with-deps chromium
+          npx vite preview --port 4173 --strictPort &
+          for i in $(seq 1 30); do curl -sf http://localhost:4173/far-aim/ >/dev/null && break; sleep 1; done
+          node tests/smoke.mjs http://localhost:4173/far-aim/
+
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
       - id: deploy
         uses: actions/deploy-pages@v4
+
+      - name: Mark the run failed if new data was rejected
+        if: steps.rollback.outputs.rolled_back == 'true'
+        run: |
+          echo "New data was rejected; the previous data is still published. See the issue for details."
+          exit 1
 
     environment:
       name: github-pages
