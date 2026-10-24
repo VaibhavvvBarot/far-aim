@@ -489,3 +489,7 @@ del { background: var(--del-bg); color: var(--del); border-radius: 2px; }
 .keys { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin: 6px 0; font-size: 15px; }
 .keys dt { font-weight: 700; color: var(--far); font-variant-numeric: tabular-nums; }
 .keys dd { margin: 0; }
+.tip-box { margin: 10px 0; padding: 12px 14px; border-radius: 12px; background: color-mix(in srgb, var(--far) 7%, var(--surface)); border: 1px solid color-mix(in srgb, var(--far) 25%, transparent); font-size: 15px; }
+.tip-box p { margin: 0 0 6px; }
+.tip-box ol { margin: 0; padding-left: 1.3em; }
+.tip-box li { margin: 3px 0; }

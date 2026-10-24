@@ -14,17 +14,34 @@ export function setSpeechPrefs(p: Partial<Prefs>) {
 }
 export const supported = typeof window !== 'undefined' && 'speechSynthesis' in window;
 
+// Joke voices and the old Eloquence voices that ship with iPadOS sound robotic; never pick them
+const ROBOTIC = /^(Albert|Bad News|Bahh|Bells|Boing|Bubbles|Cellos|Good News|Jester|Organ|Superstar|Trinoids|Whisper|Wobble|Zarvox|Fred|Junior|Kathy|Ralph|Eddy|Flo|Grandma|Grandpa|Reed|Rocko|Sandy|Shelley)\b/i;
+// Natural-sounding voices that are on most iPads (best first)
+const GOOD = ['Ava', 'Zoe', 'Evan', 'Nathan', 'Joelle', 'Noelle', 'Allison', 'Susan', 'Tom', 'Samantha', 'Nicky', 'Aaron', 'Daniel', 'Karen', 'Moira', 'Serena', 'Tessa', 'Arthur', 'Martha', 'Catherine', 'Gordon', 'Lee'];
+
+export function voiceScore(v: SpeechSynthesisVoice) {
+  if (ROBOTIC.test(v.name)) return -100;
+  let s = 0;
+  if (/premium/i.test(v.name)) s += 40;
+  else if (/enhanced/i.test(v.name)) s += 25;
+  if (/siri/i.test(v.name)) s += 30;
+  const g = GOOD.findIndex((n) => v.name.startsWith(n));
+  if (g >= 0) s += 20 - g * 0.5;
+  if (v.lang === 'en-US') s += 3;
+  return s;
+}
+export const isRobotic = (v: SpeechSynthesisVoice) => voiceScore(v) < 0;
+
+// English voices, best first
 export function voices(): SpeechSynthesisVoice[] {
   if (!supported) return [];
-  return speechSynthesis.getVoices().filter((v) => v.lang.startsWith('en'));
+  return speechSynthesis.getVoices().filter((v) => v.lang.startsWith('en')).sort((a, b) => voiceScore(b) - voiceScore(a));
 }
+export function bestVoice() { return voices().find((v) => !isRobotic(v)); }
 function pickVoice(): SpeechSynthesisVoice | undefined {
   const all = voices();
   const want = speechPrefs().voice;
-  return all.find((v) => v.voiceURI === want)
-    || all.find((v) => /premium|enhanced/i.test(v.name) && v.lang === 'en-US')
-    || all.find((v) => v.lang === 'en-US' && v.localService)
-    || all[0];
+  return all.find((v) => v.voiceURI === want) || bestVoice() || all[0];
 }
 
 // Make regulation text sound right

@@ -4,7 +4,7 @@ import { settings, annotations, refreshAnnotations, showToast, history, type The
 import { ann, kv, persist, type Annotation } from '../db';
 import { loadSrs, saveSrs } from '../srs';
 import { fmtDate } from './Home';
-import { voices, speechPrefs, setSpeechPrefs, supported as canSpeak, play, stop } from '../speech';
+import { voices, speechPrefs, setSpeechPrefs, supported as canSpeak, play, stop, bestVoice, isRobotic } from '../speech';
 
 const THEMES: { id: Theme; label: string }[] = [
   { id: 'auto', label: 'Match iPad' }, { id: 'light', label: 'Light' }, { id: 'sepia', label: 'Sepia' }, { id: 'dark', label: 'Dark' }, { id: 'night', label: 'Night red' },
@@ -82,8 +82,8 @@ export function SettingsView() {
           <h2>Read aloud</h2>
           <label class="field"><span class="field-l">Voice</span>
             <select class="select" value={sp.voice} onChange={(e) => setSpeech({ voice: (e.target as HTMLSelectElement).value })}>
-              <option value="">Best available English voice</option>
-              {vlist.map((v) => <option value={v.voiceURI}>{v.name} ({v.lang})</option>)}
+              <option value="">Automatic{bestVoice() ? ` (${bestVoice()!.name})` : ''}</option>
+              {vlist.filter((v) => !isRobotic(v)).map((v) => <option value={v.voiceURI}>{v.name} ({v.lang})</option>)}
             </select>
           </label>
           <label class="field"><span class="field-l">Speed <b>{sp.rate}×</b></span>
@@ -95,7 +95,18 @@ export function SettingsView() {
               play('settings', [{ el, text: el.textContent || '' }], 0, () => stop());
             }}>Try this voice</button>
           </div>
-          <p class="muted small">For the most natural sound, download an Enhanced or Premium voice on the iPad: Settings, Accessibility, Spoken Content, Voices. Reading stops if the iPad locks.</p>
+          {!vlist.some((v) => /premium|enhanced/i.test(v.name)) && (
+            <div class="tip-box">
+              <p><b>Make it sound natural:</b> download a Premium voice once (free, about 300 MB, works offline).</p>
+              <ol>
+                <li>Open the iPad's Settings app, then Accessibility, then Spoken Content (in some iPadOS versions it's under Read &amp; Speak).</li>
+                <li>Tap Voices, then English.</li>
+                <li>Pick Ava, Zoe or Evan and download the one marked Premium.</li>
+                <li>Close this app completely and open it again, then choose that voice above.</li>
+              </ol>
+            </div>
+          )}
+          <p class="muted small">Reading stops if the iPad locks.</p>
         </section>
       )}
 
