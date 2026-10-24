@@ -122,9 +122,10 @@ export function chunk(blocks: { text: string }[], from = 0): Chunk[] {
     const sentences = b.text.replace(/\s+/g, ' ').trim().match(/[^.!?]+(?:[.!?]+(?=\s|$)|$)\s*/g) || [b.text];
     let buf = '';
     for (const s of sentences) {
-      const pieces = s.length > 260 ? s.split(/(?<=[;:,])\s+/) : [s];
+      // long sentences, and the very first sentence, are split at ; : , so audio starts sooner
+      const pieces = s.length > 260 || (out.length === 0 && !buf && s.length > 90) ? s.split(/(?<=[;:,])\s+/) : [s];
       for (const p of pieces) {
-        const limit = out.length === 0 ? 120 : 240; // keep the very first chunk short so audio starts fast
+        const limit = out.length === 0 ? 90 : 240; // keep the very first chunk short so audio starts fast
         if (buf && (buf + ' ' + p).length > limit) { out.push({ block: i, text: buf.trim() }); buf = ''; }
         buf += (buf ? ' ' : '') + p;
       }
