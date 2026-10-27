@@ -14,7 +14,6 @@ export default defineConfig({
       filename: 'sw.ts',
       injectManifest: {
         globPatterns: ['**/*.{js,css,html,json,webp,png,woff2}'],
-        globIgnores: ['ort/**', 'bench/**'],
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
       },
       includeAssets: ['icons/*.png'],
@@ -37,5 +36,4 @@ export default defineConfig({
     }),
   ],
   build: { target: 'safari15', chunkSizeWarningLimit: 800 },
-  worker: { format: 'es' },
 });

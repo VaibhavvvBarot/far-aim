@@ -13,15 +13,15 @@ import { searchIndex } from './data';
 
 loadState();
 
-// The AI voice runs much faster with cross-origin isolation (all CPU cores). Our service worker adds the
-// headers, but only to pages it served; if this launch came straight from the network, reload once.
+// The AI voice was removed: free the storage it used (model, runtime, voices) on devices that had it
 try {
-  const ai = JSON.parse(localStorage.getItem('aivoice') || '{}');
-  const eng = JSON.parse(localStorage.getItem('speech') || '{}');
-  if (ai.installed && eng.engine === 'ai' && !self.crossOriginIsolated && navigator.serviceWorker?.controller && !sessionStorage.getItem('coi-reload')) {
-    sessionStorage.setItem('coi-reload', '1');
-    location.reload();
+  if (localStorage.getItem('aivoice') !== null) {
+    localStorage.removeItem('aivoice');
+    const sp = JSON.parse(localStorage.getItem('speech') || '{}');
+    delete sp.engine;
+    localStorage.setItem('speech', JSON.stringify(sp));
   }
+  if ('caches' in self) for (const c of ['transformers-cache', 'ort', 'kokoro-voices']) caches.delete(c);
 } catch { /* ignore */ }
 persist();
 render(<App />, document.getElementById('app')!);

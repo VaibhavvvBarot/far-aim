@@ -1,15 +1,14 @@
 // Read aloud with the iPad's built-in voices (works offline with downloaded voices).
 import { signal } from '@preact/signals';
-import { aiPlay, aiPause, aiResume, aiStop, aiSetRate, aiPrefs, unlockAudio } from './ai-voice';
 
 export interface Block { el: HTMLElement; text: string }
 export const speaking = signal<{ state: 'idle' | 'playing' | 'paused'; index: number; total: number; sid: string; buffering?: boolean }>({ state: 'idle', index: 0, total: 0, sid: '' });
 export const speechError = signal<string | null>(null);
 
 const RATE_KEY = 'speech';
-interface Prefs { rate: number; voice: string; next: boolean; engine: 'ai' | 'system' }
+interface Prefs { rate: number; voice: string; next: boolean }
 export function speechPrefs(): Prefs {
-  try { return { rate: 1, voice: '', next: false, engine: 'system', ...JSON.parse(localStorage.getItem(RATE_KEY) || '{}') }; } catch { return { rate: 1, voice: '', next: false, engine: 'system' }; }
+  try { return { rate: 1, voice: '', next: false, ...JSON.parse(localStorage.getItem(RATE_KEY) || '{}') }; } catch { return { rate: 1, voice: '', next: false }; }
 }
 export function setSpeechPrefs(p: Partial<Prefs>) {
   try { localStorage.setItem(RATE_KEY, JSON.stringify({ ...speechPrefs(), ...p })); } catch { /* ignore */ }
@@ -78,25 +77,8 @@ function finish() {
   const f = onFinish; onFinish = null; f?.();
 }
 
-// Which engine reads: the downloaded AI voice, or the iPad's own voices
-export const useAi = () => speechPrefs().engine === 'ai' && aiPrefs().installed;
-
 export function play(sid: string, list: Block[], start = 0, finished?: () => void) {
   if (!list.length) return;
-  if (useAi()) {
-    unlockAudio(); // must happen inside the tap
-    stop(false);
-    blocks = list;
-    onFinish = finished || null;
-    speaking.value = { state: 'playing', index: start, total: list.length, sid, buffering: true };
-    aiPlay(list, start, speechPrefs().rate, {
-      onBlock: (i) => markBlock(i),
-      onBuffering: (b) => { if (speaking.value.state !== 'idle') speaking.value = { ...speaking.value, buffering: b }; },
-      onEnd: finish,
-      onError: (e) => { clearMarks(); speaking.value = { state: 'idle', index: 0, total: 0, sid: '' }; speechError.value = e; },
-    });
-    return;
-  }
   if (!supported) return;
   stop(false);
   blocks = list;
@@ -120,16 +102,15 @@ export function play(sid: string, list: Block[], start = 0, finished?: () => voi
   }, 180);
 }
 export function pause() {
-  if (useAi()) aiPause(); else if (supported) speechSynthesis.pause();
+  if (supported) speechSynthesis.pause();
   speaking.value = { ...speaking.value, state: 'paused' };
 }
 export function resume() {
-  if (useAi()) aiResume(); else if (supported) speechSynthesis.resume();
+  if (supported) speechSynthesis.resume();
   speaking.value = { ...speaking.value, state: 'playing' };
 }
 export function stop(reset = true) {
   generation++;
-  aiStop();
   if (supported) speechSynthesis.cancel();
   clearMarks();
   if (reset) { onFinish = null; speaking.value = { state: 'idle', index: 0, total: 0, sid: '' }; }
@@ -144,8 +125,7 @@ export function restartAtRate(rate: number) {
   setSpeechPrefs({ rate });
   const s = speaking.value;
   if (s.state === 'idle') return;
-  if (useAi()) aiSetRate(rate); // the AI voice changes speed instantly, no restart
-  else play(s.sid, blocks, s.index, onFinish || undefined);
+  play(s.sid, blocks, s.index, onFinish || undefined);
 }
 
 // Split rendered section text into readable chunks: paragraphs, list items (without their sub-lists), table rows

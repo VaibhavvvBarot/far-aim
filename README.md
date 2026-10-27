@@ -14,7 +14,7 @@ Unofficial. Always check the official [eCFR](https://www.ecfr.gov/current/title-
 - Highlights in five colors, notes, bookmarks with your own names, and a backup file
 - What's new: every changed section with the exact words added and removed
 - Tap a § reference to preview it without losing your place; tap a dotted term (defined in 14 CFR 1.1) to see its legal definition
-- An outline of (a), (b), (c) for long sections; read aloud with a natural on-device AI voice (Kokoro, about 90 MB, downloads once and works offline) or the iPad's voices; flashcards with spaced repetition made from your highlights
+- An outline of (a), (b), (c) for long sections; read aloud with the iPad's voices; flashcards with spaced repetition made from your highlights
 - Swipe from the left edge to go back; keyboard shortcuts (⌘K search, ⌘F find, ← → sections, R read aloud)
 - Light, sepia, dark and red night-cockpit themes
 

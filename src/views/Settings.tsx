@@ -5,7 +5,6 @@ import { ann, kv, persist, type Annotation } from '../db';
 import { loadSrs, saveSrs } from '../srs';
 import { fmtDate } from './Home';
 import { voices, speechPrefs, setSpeechPrefs, supported as canSpeak, play, stop, bestVoice, isRobotic } from '../speech';
-import { AI_VOICES, aiPrefs, setAiPrefs, aiStatus, loadAi, unloadAi, removeAiVoice, unlockAudio, gpuAvailable, DOWNLOAD_MB } from '../ai-voice';
 
 const THEMES: { id: Theme; label: string }[] = [
   { id: 'auto', label: 'Match iPad' }, { id: 'light', label: 'Light' }, { id: 'sepia', label: 'Sepia' }, { id: 'dark', label: 'Dark' }, { id: 'night', label: 'Night red' },
@@ -31,10 +30,6 @@ export function SettingsView() {
     return () => speechSynthesis.removeEventListener('voiceschanged', on);
   }, []);
   const setSpeech = (p: Partial<typeof sp>) => { setSpeechPrefs(p); setSp(speechPrefs()); };
-  const [ai, setAiState] = useState(aiPrefs());
-  const setAi = (p: Parameters<typeof setAiPrefs>[0]) => { setAiPrefs(p); setAiState(aiPrefs()); };
-  const st = aiStatus.value;
-  useEffect(() => { if (st.state === 'ready') setAiState(aiPrefs()); }, [st.state]);
 
   const exportBackup = async () => {
     const data = { app: 'far-aim', version: 1, exported: new Date().toISOString(), annotations: annotations.value, history: history.value, flashcards: await loadSrs() };
@@ -84,57 +79,7 @@ export function SettingsView() {
 
       <section class="block">
         <h2>Read aloud</h2>
-        <div class="field"><span class="field-l">Voice engine</span>
-          <div class="filters wrap">
-            <button class={'seg' + (sp.engine === 'ai' ? ' on' : '')} aria-pressed={sp.engine === 'ai'} onClick={() => setSpeech({ engine: 'ai' })}>Natural AI voice</button>
-            {canSpeak && <button class={'seg' + (sp.engine === 'system' ? ' on' : '')} aria-pressed={sp.engine === 'system'} onClick={() => { setSpeech({ engine: 'system' }); }}>iPad voice</button>}
-          </div>
-        </div>
-
-        {sp.engine === 'ai' && (
-          <div class="ai-box">
-            {!ai.installed && st.state !== 'loading' && (
-              <>
-                <p>A neural voice that runs on this iPad and sounds like a real narrator. It downloads once, then works offline.</p>
-                <div class="filters wrap">
-                  <button class={'seg' + (ai.mode === 'cpu' ? ' on' : '')} onClick={() => setAi({ mode: 'cpu' })}>Standard ({DOWNLOAD_MB.cpu} MB)</button>
-                  {gpuAvailable && <button class={'seg' + (ai.mode === 'gpu' ? ' on' : '')} onClick={() => setAi({ mode: 'gpu' })}>Faster, uses the GPU ({DOWNLOAD_MB.gpu} MB)</button>}
-                </div>
-                <button class="btn" onClick={() => { unlockAudio(); loadAi(ai.mode).then(() => setAiState(aiPrefs())).catch(() => {}); }}>Download the AI voice</button>
-                <p class="muted small">Use Wi-Fi. Keep this screen open until it finishes.</p>
-              </>
-            )}
-            {st.state === 'loading' && (
-              <div class="dl">
-                <p>Downloading and preparing the voice… {st.pct}%</p>
-                <div class="bar"><span style={{ width: st.pct + '%' }} /></div>
-              </div>
-            )}
-            {st.state === 'error' && <p class="err">The voice couldn't load: {st.error}. Check the connection and try again.</p>}
-            {ai.installed && st.state !== 'loading' && (
-              <>
-                <label class="field"><span class="field-l">Voice</span>
-                  <select class="select" value={ai.voice} onChange={(e) => setAi({ voice: (e.target as HTMLSelectElement).value })}>
-                    {AI_VOICES.map((v) => <option value={v.id}>{v.name}, {v.desc}</option>)}
-                  </select>
-                </label>
-                {st.rtf != null && (
-                  <p class={'muted small' + (st.rtf > 0.85 ? ' warn' : '')}>
-                    Speed check: this iPad makes speech {st.rtf < 1 ? `${(1 / st.rtf).toFixed(1)}× faster than` : `${st.rtf.toFixed(1)}× slower than`} it plays.
-                    {st.rtf > 0.85 && ai.mode === 'cpu' && gpuAvailable && ' Try the faster GPU version below to avoid pauses.'}
-                  </p>
-                )}
-                <div class="row-actions">
-                  {gpuAvailable && ai.mode === 'cpu' && <button class="btn ghost" onClick={() => { unloadAi(); setAi({ mode: 'gpu', installed: false }); }}>Switch to the faster GPU version</button>}
-                  {ai.mode === 'gpu' && <button class="btn ghost" onClick={() => { unloadAi(); setAi({ mode: 'cpu', installed: false }); }}>Switch to the standard version</button>}
-                  <button class="btn ghost danger" onClick={async () => { await removeAiVoice(); setAiState(aiPrefs()); showToast('AI voice removed from this iPad'); }}>Remove</button>
-                </div>
-              </>
-            )}
-          </div>
-        )}
-
-        {sp.engine === 'system' && canSpeak && (
+        {canSpeak && (
           <>
             <label class="field"><span class="field-l">iPad voice</span>
               <select class="select" value={sp.voice} onChange={(e) => setSpeech({ voice: (e.target as HTMLSelectElement).value })}>
@@ -159,7 +104,7 @@ export function SettingsView() {
           <input type="range" min="0.6" max="2" step="0.1" value={sp.rate} onInput={(e) => setSpeech({ rate: +(e.target as HTMLInputElement).value })} /></label>
         <label class="toggle left"><input type="checkbox" checked={sp.next} onChange={(e) => setSpeech({ next: (e.target as HTMLInputElement).checked })} /> Keep reading into the next section</label>
         <div class="row-actions">
-          <button class="btn ghost" disabled={sp.engine === 'ai' && !ai.installed} onClick={() => {
+          <button class="btn ghost" disabled={!canSpeak} onClick={() => {
             const el = document.querySelector('.preview-text') as HTMLElement;
             play('settings', [{ el, text: el.textContent || '' }], 0, () => stop());
           }}>Try this voice</button>
