@@ -84,18 +84,14 @@ export function SettingsView() {
             <label class="field"><span class="field-l">iPad voice</span>
               <select class="select" value={sp.voice} onChange={(e) => setSpeech({ voice: (e.target as HTMLSelectElement).value })}>
                 <option value="">Automatic{bestVoice() ? ` (${voiceLabel(bestVoice()!).replace(/ \([a-z]{2}-[A-Z]{2}\)$/, '')})` : ''}</option>
+                <option value="system">iPad's own default voice</option>
                 {vlist.filter((v) => !isRobotic(v)).map((v) => <option value={v.voiceURI}>{voiceLabel(v)}</option>)}
               </select>
             </label>
-            {!vlist.some((v) => /premium|enhanced/i.test(v.name)) && (
+            {!vlist.some((v) => /premium|enhanced/i.test(`${v.name} ${v.voiceURI}`)) && (
               <div class="tip-box">
-                <p><b>Better iPad voice:</b> download a Premium voice once (free, about 300 MB).</p>
-                <ol>
-                  <li>Open the iPad's Settings app, then Accessibility, then Spoken Content (in some versions, Read &amp; Speak).</li>
-                  <li>Tap Voices, then English, pick Ava, Zoe or Evan and download Premium.</li>
-                  <li>Close this app completely (swipe it away in the app switcher), open it again and choose that voice here.</li>
-                </ol>
-                <p class="small muted">Voices are stored on each device. One downloaded on your iPhone won't show up on the iPad.</p>
+                <p><b>Why isn't Ava Premium here?</b> iPadOS only lets web apps see the voices that come built in. Voices you download in Settings, like Ava Premium, are hidden from this list by Apple.</p>
+                <p>Pick <b>iPad's own default voice</b> above and tap Try this voice. It lets the iPad choose the voice, which may use the one set in Settings › Accessibility › Spoken Content. If it still sounds robotic, Apple isn't sharing that voice with web apps, and Samantha is the best one left.</p>
               </div>
             )}
           </>

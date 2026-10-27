@@ -46,15 +46,20 @@ export function voiceScore(v: SpeechSynthesisVoice) {
 }
 export const isRobotic = (v: SpeechSynthesisVoice) => voiceScore(v) < 0;
 
-// English voices, best first
+// English voices, best first, one per name/language (iPadOS lists some twice)
 export function voices(): SpeechSynthesisVoice[] {
   if (!supported) return [];
-  return speechSynthesis.getVoices().filter((v) => v.lang.startsWith('en')).sort((a, b) => voiceScore(b) - voiceScore(a));
+  const seen = new Set<string>();
+  return speechSynthesis.getVoices().filter((v) => v.lang.startsWith('en')).sort((a, b) => voiceScore(b) - voiceScore(a))
+    .filter((v) => { const k = voiceLabel(v); if (seen.has(k)) return false; seen.add(k); return true; });
 }
 export function bestVoice() { return voices().find((v) => !isRobotic(v)); }
+// 'system': don't name a voice at all and let iPadOS use its own default
+export const SYSTEM_VOICE = 'system';
 function pickVoice(): SpeechSynthesisVoice | undefined {
   const all = voices();
   const want = speechPrefs().voice;
+  if (want === SYSTEM_VOICE) return undefined;
   return all.find((v) => v.voiceURI === want) || bestVoice() || all[0];
 }
 
@@ -107,6 +112,7 @@ export function play(sid: string, list: Block[], start = 0, finished?: () => voi
     for (let i = start; i < list.length; i++) {
       const u = new SpeechSynthesisUtterance(speakable(list[i].text));
       if (voice) { u.voice = voice; u.lang = voice.lang; }
+      else if (speechPrefs().voice !== SYSTEM_VOICE) u.lang = 'en-US';
       u.rate = rate;
       u.onstart = () => { if (gen === generation) { markBlock(i); speaking.value = { ...speaking.value, state: 'playing' }; } };
       u.onend = () => { if (gen === generation && i === list.length - 1) finish(); };
