@@ -59,6 +59,7 @@ export function Reader({ id }: { id: string }) {
   const body = useRef<HTMLDivElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const [pending, setPending] = useState<null | { exact: string; prefix: string; suffix: string }>(null);
+  const [overlap, setOverlap] = useState<string[]>([]); // highlights under the current selection
   const [editing, setEditing] = useState<Highlight | null>(null);
   const [noteDraft, setNoteDraft] = useState<string | null>(null);
   const [findOpen, setFindOpen] = useState(false);
@@ -199,7 +200,10 @@ export function Reader({ id }: { id: string }) {
       const r = sel.getRangeAt(0);
       if (!el.contains(r.commonAncestorContainer)) return;
       const d = describeSelection(el, r);
-      if (d && d.exact.trim()) setPending(d);
+      if (d && d.exact.trim()) {
+        setPending(d);
+        setOverlap([...new Set(Array.from(el.querySelectorAll<HTMLElement>('mark.hl')).filter((m) => r.intersectsNode(m)).map((m) => m.dataset.hid!))]);
+      }
     };
     document.addEventListener('selectionchange', on);
     return () => document.removeEventListener('selectionchange', on);
@@ -233,10 +237,20 @@ export function Reader({ id }: { id: string }) {
     return () => window.removeEventListener('far:key', on);
   });
 
-  const clearSel = () => { document.getSelection()?.removeAllRanges(); setPending(null); };
+  const removeOverlap = async () => {
+    const n = overlap.length;
+    for (const hid of overlap) await deleteAnnotation(hid);
+    clearSel();
+    showToast(n === 1 ? 'Highlight removed' : `${n} highlights removed`);
+  };
+
+  const clearSel = () => { document.getSelection()?.removeAllRanges(); setPending(null); setOverlap([]); };
 
   const addHl = async (color: Color, withNote = false) => {
     if (!pending) return;
+    // selecting inside an existing highlight and picking a color recolors it
+    const inside = overlap.length === 1 && hls.find((x) => x.id === overlap[0] && x.exact.includes(pending.exact.trim()));
+    if (inside) { await saveAnnotation({ ...inside, color }); clearSel(); if (withNote) setEditing({ ...inside, color }); return; }
     const h: Highlight = { id: uid(), type: 'hl', sid: id, ...pending, color, created: Date.now() };
     await saveAnnotation(h);
     clearSel();
@@ -425,6 +439,7 @@ export function Reader({ id }: { id: string }) {
 
       {pending && (
         <div class="sel-bar" role="toolbar" aria-label="Highlight selection" onPointerDown={(e) => e.preventDefault()}>
+          {overlap.length > 0 && <><button class="bar-btn erase" onClick={removeOverlap}><Icon name="trash" size={18} /> Remove</button><span class="sep" /></>}
           {COLORS.map((c) => <button class={`swatch c-${c.id}`} aria-label={`Highlight ${c.name.toLowerCase()}`} onClick={() => addHl(c.id)} />)}
           <span class="sep" />
           <button class="bar-btn" onClick={() => addHl('yellow', true)}>Note</button>
@@ -473,7 +488,7 @@ export function HighlightSheet({ h, onClose }: { h: Highlight; onClose: () => vo
           </div>
           <textarea value={note} rows={4} placeholder="Add a note to this highlight" onInput={(e) => setNote((e.target as HTMLTextAreaElement).value)} />
           <div class="sheet-actions">
-            <button class="btn ghost danger" onClick={async () => { deleted.current = true; await deleteAnnotation(h.id); close(); }}><Icon name="trash" size={18} /> Delete highlight</button>
+            <button class="btn ghost danger" onClick={async () => { deleted.current = true; await deleteAnnotation(h.id); close(); }}><Icon name="trash" size={18} /> Remove highlight</button>
             <span class="spacer" />
             <button class="btn" onClick={close}>Done</button>
           </div>

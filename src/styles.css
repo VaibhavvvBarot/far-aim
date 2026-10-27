@@ -538,3 +538,6 @@ del { background: var(--del-bg); color: var(--del); border-radius: 2px; }
 .fc-rule summary { cursor: pointer; text-align: center; }
 .fc-rule p { font-family: var(--serif); color: var(--ink); line-height: 1.5; }
 .filters.center { justify-content: center; }
+
+.doc-body mark.hl { cursor: pointer; }
+.sel-bar .erase { white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; color: #b3261e; }
