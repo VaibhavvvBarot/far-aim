@@ -154,7 +154,7 @@ export function SettingsView() {
 
       <section class="block about">
         <h2>About</h2>
-        <p>This is a personal, unofficial copy of 14 CFR, 49 CFR Part 830, the Aeronautical Information Manual and the Pilot/Controller Glossary, built from the eCFR and FAA websites. It can lag behind or contain parsing errors. Check the official text before relying on it.</p>
+        <p>This is a personal, unofficial copy of 14 CFR Chapter I (every FAA Part), 49 CFR Parts 175, 830 and 1552, the Aeronautical Information Manual and the Pilot/Controller Glossary, built from the eCFR and FAA websites. It can lag behind or contain parsing errors. Check the official text before relying on it.</p>
         <p class="muted">No accounts, no tracking. Everything you add stays on this device.</p>
       </section>
     </div>

@@ -116,7 +116,7 @@ export function Reader({ id }: { id: string }) {
     }
     setOrphans(lost);
     setOutline(buildOutline(el, sec.doc));
-    markDefinitions(el, sec.id);
+    markDefinitions(el, sec.id, sec.doc === 'far' ? sec.part : undefined);
   }, [sec, JSON.stringify(hls)]);
 
   // Where to start: search term, where you were this session, last time, or the top
@@ -498,10 +498,10 @@ function DefSheet({ d, onClose }: { d: Def; onClose: () => void }) {
     <Sheet label={`Definition of ${d.term}`} onClose={onClose}>
       {(close: () => void) => (
         <>
-          <p class="def-k">Defined in 14 CFR 1.1</p>
+          <p class="def-k">Defined in 14 CFR {d.src || '1.1'}</p>
           <div class="doc-body def-body" dangerouslySetInnerHTML={{ __html: d.html }} />
           <div class="sheet-actions">
-            <a class="btn ghost" href={`#/s/1.1?find=${encodeURIComponent(d.match)}`} onClick={() => close()}>Open § 1.1</a>
+            <a class="btn ghost" href={`#/s/${d.src || '1.1'}?find=${encodeURIComponent(d.match)}`} onClick={() => close()}>Open § {d.src || '1.1'}</a>
             <span class="spacer" />
             <button class="btn" onClick={close}>Done</button>
           </div>

@@ -48,6 +48,7 @@ export function resolve(t: Toc, item: string): Resolved | null {
 export function GuideList() {
   const certs = GUIDES.filter((g) => g.kind === 'cert');
   const topics = GUIDES.filter((g) => g.kind === 'topic');
+  const decide = GUIDES.filter((g) => g.kind === 'decide');
   const card = (g: Guide) => (
     <li><a href={`#/g/${g.id}`} class="guide-row">
       <span class="g-title">{g.title}</span>
@@ -56,6 +57,7 @@ export function GuideList() {
   );
   return (
     <div class="guides">
+      {decide.length > 0 && <><h2 class="list-h">Which rule applies?</h2><ul class="list">{decide.map(card)}</ul></>}
       <h2 class="list-h">By certificate</h2>
       <ul class="list">{certs.map(card)}</ul>
       <h2 class="list-h">By topic</h2>
@@ -80,12 +82,14 @@ export function GuideView({ id }: { id: string }) {
         </div>
       </header>
       {!t && <p class="muted pad">Loading…</p>}
-      {t && g.groups.map((grp) => {
+      {g.intro && <div class="guide-intro">{g.intro.map((p) => <p>{p}</p>)}</div>}
+      {t && g.groups.map((grp, i) => {
         const items = grp.items.map((i) => resolve(t, i)).filter((x): x is Resolved => !!x);
-        if (!items.length) return null;
+        if (!items.length && !grp.note) return null;
         return (
-          <section>
-            <h2 class="list-h">{grp.title}</h2>
+          <section class={g.kind === 'decide' ? 'step' : ''}>
+            <h2 class="list-h">{g.kind === 'decide' && <span class="step-n">{i + 1}</span>}{grp.title}</h2>
+            {grp.note && <p class="guide-note">{grp.note}</p>}
             <ul class="list">
               {items.map((it) => (
                 <li class={(it.id && it.id === cur ? 'cur ' : '') + (it.href.startsWith('#/p/') ? 'is-group' : '')}>

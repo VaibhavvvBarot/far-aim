@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
+import { guidesFor } from '../guides';
 import { search, searchIndex, parseJump, indexReady, label, docName, type Hit, type DocFilter } from '../data';
 import { go } from '../store';
 import { kv } from '../db';
@@ -93,6 +94,14 @@ export function SearchView({ urlQ }: { urlQ: string }) {
           Go to {jump.kind === 'part' ? `Part ${jump.id}` : jump.kind === 'aim' ? jump.id.replace('aim-', 'AIM ') : `§ ${jump.id}`}
         </a>
       )}
+
+      {q.trim().length > 2 && !jump && guidesFor(q).map((g) => (
+        <a class="guide-hit" href={`#/g/${g.id}`} onClick={() => remember(q.trim())}>
+          <span class="doc-tag guide">Guide</span>
+          <span class="g-title">{g.title}</span>
+          <span class="g-blurb">{g.blurb}</span>
+        </a>
+      ))}
 
       {!q.trim() && recent.length > 0 && (
         <section class="block">

@@ -1,7 +1,17 @@
 // Tap-to-define: terms defined in 14 CFR 1.1 get a subtle underline (first use per section).
-export interface Def { term: string; match: string; html: string }
+// Terms from § 110.2 apply only inside the Parts listed with them (the air carrier Parts).
+export interface Def { term: string; match: string; html: string; src?: string; parts?: string[] }
+interface Scope { re: RegExp | null; byKey: Map<string, number> }
 
-let defsP: Promise<{ list: Def[]; re: RegExp | null; byKey: Map<string, number> }> | null = null;
+function makeScope(list: Def[], use: (d: Def) => boolean): Scope {
+  const byKey = new Map<string, number>();
+  list.forEach((d, i) => { if (use(d)) byKey.set(d.match.toLowerCase(), i); }); // later entries (110.2) win
+  const terms = [...byKey.keys()].sort((a, b) => b.length - a.length).map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+'));
+  const re = terms.length ? new RegExp(`(?<![\\p{L}\\p{N}-])(${terms.join('|')})(?:s|es)?(?![\\p{L}\\p{N}-])`, 'giu') : null;
+  return { re, byKey };
+}
+
+let defsP: Promise<{ list: Def[]; general: Scope; scoped: Map<string, Scope> }> | null = null;
 
 export function loadDefs() {
   if (!defsP) {
@@ -9,11 +19,14 @@ export function loadDefs() {
       .then((r) => (r.ok ? r.json() : []))
       .catch(() => [])
       .then((list: Def[]) => {
-        const byKey = new Map<string, number>();
-        list.forEach((d, i) => byKey.set(d.match.toLowerCase(), i));
-        const terms = [...byKey.keys()].sort((a, b) => b.length - a.length).map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+'));
-        const re = terms.length ? new RegExp(`(?<![\\p{L}\\p{N}-])(${terms.join('|')})(?:s|es)?(?![\\p{L}\\p{N}-])`, 'giu') : null;
-        return { list, re, byKey };
+        const general = makeScope(list, (d) => !d.parts);
+        const scoped = new Map<string, Scope>();
+        const special = list.filter((d) => d.parts);
+        if (special.length) {
+          const sc = makeScope(list, () => true);
+          for (const p of special[0].parts!) scoped.set(p, sc);
+        }
+        return { list, general, scoped };
       });
   }
   return defsP;
@@ -22,9 +35,10 @@ export function loadDefs() {
 const SKIP = 'a, .def, .cite, mark.find, h4, th, figcaption';
 
 // Wrap the first occurrence of each defined term in `root`
-export async function markDefinitions(root: HTMLElement, sectionId: string) {
-  if (sectionId === '1.1') return;
-  const { re, byKey } = await loadDefs();
+export async function markDefinitions(root: HTMLElement, sectionId: string, part?: string) {
+  if (sectionId === '1.1' || sectionId === '110.2') return;
+  const { general, scoped } = await loadDefs();
+  const { re, byKey } = (part && scoped.get(part)) || general;
   if (!re || !root.isConnected) return;
   const used = new Set<string>();
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {

@@ -27,7 +27,7 @@ export interface Manifest {
   packs: PackMeta[];
 }
 export interface TocSection { id: string; num: string; title: string; sub?: string | null; grp?: string; reserved?: boolean; app?: boolean }
-export interface TocPart { doc: string; part: string; title: string; subparts: { id: string; title: string; first: string | null }[]; sections: TocSection[] }
+export interface TocPart { doc: string; part: string; title: string; sc?: string; scTitle?: string; subparts: { id: string; title: string; first: string | null }[]; sections: TocSection[] }
 export interface TocAim { ch: string; title: string; sections: { id: string; num: string; title: string; paras: { id: string; num: string; title: string }[] }[] }
 export interface Toc { far: TocPart[]; t49: TocPart[]; aim: TocAim[]; pcg: { id: string; title: string }[] }
 export interface Change { id: string; doc: string; num: string; title: string; date: string; amended?: string | null; kind: 'added' | 'changed' | 'removed'; ops: [number, string][] }
@@ -161,6 +161,9 @@ const SYN: Record<string, string[]> = {
   ifr: ['IFR', 'instrument flight rules'],
   vfr: ['VFR', 'visual flight rules'],
   inop: ['inoperative'],
+  ferry: ['special flight permit'],
+  opspecs: ['operations specifications'],
+  charter: ['on-demand', 'charter'],
 };
 function expand(q: string) {
   const words = q.split(/\s+/).filter(Boolean);
@@ -229,7 +232,7 @@ export function parseJump(q: string): { kind: 'section' | 'part' | 'aim'; id: st
   if (m) return { kind: 'aim', id: `aim-${+m[1]}-${+m[2]}-${+m[3]}` };
   m = s.match(/^(?:part|pt\.?|p)\s*(\d{1,3})$/);
   if (m) return { kind: 'part', id: m[1] };
-  m = s.match(/^49\s*cfr\s*(\d{3})\.(\d+)$/);
+  m = s.match(/^49\s*cfr\s*(\d{3,4})\.(\d+)$/);
   if (m) return { kind: 'section', id: `49cfr${m[1]}.${m[2]}` };
   return null;
 }

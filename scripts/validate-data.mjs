@@ -48,6 +48,12 @@ const spot = [
   ['1.1', /Night means/i],
   ['aim-3-2-3', /Class B/],
   ['49cfr830.5', /immediately/i],
+  ['21.197', /special flight permit/i],
+  ['110.2', /Wet lease/i],
+  ['119.1', /does not apply/i],
+  ['121.1', /domestic, flag, and supplemental/i],
+  ['125.1', /seating configuration of 20 or more/i],
+  ['135.1', /commuter or on-demand/i],
 ];
 for (const [id, re] of spot) {
   if (!byId.has(id)) fail(`Section ${id} is missing.`);

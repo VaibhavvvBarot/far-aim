@@ -495,3 +495,22 @@ del { background: var(--del-bg); color: var(--del); border-radius: 2px; }
 .tip-box li { margin: 3px 0; }
 .err { color: var(--del); }
 .warn { color: var(--del) !important; }
+
+/* FAR Parts grouped by subchapter */
+.far-groups .tree-row .num { color: var(--far); min-width: 1.6em; }
+.far-groups .tree-row .ttl { display: flex; flex-direction: column; }
+.parts.nested { margin: 0; }
+.parts.nested li > a { padding-left: 34px; }
+
+/* Decision guides */
+.guide-intro { padding: 4px 20px 0; }
+.guide-intro p, .guide-note { font-family: var(--serif); font-size: 16px; line-height: 1.5; margin: 0 0 10px; color: var(--ink); }
+.guide-note { padding: 0 20px; color: var(--ink-2, var(--ink)); }
+.guide-intro p:last-child { color: var(--muted); font-size: 14px; font-family: inherit; }
+.step .list-h { display: flex; align-items: center; gap: 10px; }
+.step-n { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--far); color: var(--bg); font-size: 12px; font-weight: 700; letter-spacing: 0; }
+
+.guide-hit { display: grid; gap: 2px; margin: 4px 16px 10px; padding: 12px 14px; border-radius: 12px; background: color-mix(in srgb, var(--far) 9%, var(--surface)); color: var(--ink); text-decoration: none; }
+.guide-hit .g-title { font-weight: 600; }
+.guide-hit .g-blurb { color: var(--muted); font-size: 14px; }
+.doc-tag.guide { justify-self: start; color: var(--far); }

@@ -10,7 +10,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import * as cheerio from 'cheerio';
 import { diffWordsWithSpace } from 'diff';
-import { FAR_PARTS, T49_PARTS } from './parts.mjs';
+import { T14_CHAPTER, T49_PARTS } from './parts.mjs';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const OUT = path.join(ROOT, 'public', 'data');
@@ -503,6 +503,19 @@ async function main() {
 
   const regsChanged = !prevManifest || prevManifest.sources.far.issued !== t14.latest_issue_date || prevManifest.sources.t49.issued !== t49.latest_issue_date;
   const aimChanged = !prevManifest || prevManifest.sources.aim.effective !== aimEff;
+  // Every non-reserved Part in Title 14 Chapter I, with its subchapter
+  const struct = await get(`${ECFR}/structure/${ecfrDate14}/title-14.json`, { type: 'json' });
+  const chapter = struct.children.find((c) => c.type === 'chapter' && c.identifier === T14_CHAPTER);
+  const subchapterOf = {};
+  const FAR_PARTS = [];
+  for (const sc of chapter.children) {
+    for (const p of sc.children || []) {
+      if (p.type !== 'part' || p.reserved) continue;
+      FAR_PARTS.push(Number(p.identifier));
+      subchapterOf[p.identifier] = { sc: sc.identifier, scTitle: clean(sc.label_description || '') };
+    }
+  }
+  if (FAR_PARTS.length < 60) throw new Error(`eCFR table of contents lists only ${FAR_PARTS.length} Parts in Chapter ${T14_CHAPTER}`);
   const wantedParts = JSON.stringify([FAR_PARTS, T49_PARTS]);
   const partsChanged = !prevManifest || prevManifest.partsKey !== wantedParts;
   console.log(`eCFR Title 14 issued ${t14.latest_issue_date} (as of ${ecfrAsOf}); AIM effective ${aimEff}`);
@@ -519,6 +532,8 @@ async function main() {
 
   // Load previous packs for diffing
   const prevText = new Map();
+  const prevPackIds = new Set((prevManifest?.packs || []).map((p) => p.id));
+  const packIdOf = (s) => s.doc === 'far' ? `14-${s.part}` : s.doc === 't49' ? `49-${s.part}` : s.doc === 'aim' ? `aim-${s.ch}` : 'pcg';
   const prevImgs = new Set();
   if (prevManifest) {
     for (const p of prevManifest.packs) {
@@ -544,7 +559,7 @@ async function main() {
       console.log(`${sections.length} sections`);
       const file = `${title === 14 ? 'far' : 't49'}-${part}.json`;
       packs.push({ id: `${title}-${part}`, doc: title === 14 ? 'far' : 't49', part: String(part), title: partTitle, file, sections });
-      farToc.push({ doc: title === 14 ? 'far' : 't49', part: String(part), title: partTitle, subparts,
+      farToc.push({ doc: title === 14 ? 'far' : 't49', part: String(part), title: partTitle, subparts, ...(title === 14 ? subchapterOf[part] : {}),
         sections: sections.map((s) => ({ id: s.id, num: s.num, title: s.title, sub: s.sub, grp: s.grp, reserved: s.reserved || undefined, app: s.appendix || undefined })) });
       all.push(...sections);
       await sleep(250);
@@ -584,6 +599,8 @@ async function main() {
       const before = prevText.get(s.id);
       const afterText = textOf(s.html);
       if (!before) {
+        // A whole Part the app just started carrying is not "new text" from the FAA
+        if (!prevPackIds.has(packIdOf(s))) continue;
         if (s.doc !== 'pcg' || prevText.size) newChanges.push({ id: s.id, doc: s.doc, num: s.num, title: s.title, date: now, amended: s.amended || null, kind: 'added', ops: [[1, afterText.slice(0, 600)]] });
         continue;
       }
@@ -617,7 +634,12 @@ async function main() {
   }
   await writeJSON(path.join(OUT, 'toc.json'), { far: farToc.filter((t) => t.doc === 'far'), t49: farToc.filter((t) => t.doc === 't49'), aim: aimToc, pcg: pcg.map((t) => ({ id: t.id, title: t.title })) });
   await writeJSON(path.join(OUT, 'changes.json'), changes);
-  await writeJSON(path.join(OUT, 'defs.json'), extractDefinitions(all.find((s) => s.id === '1.1')));
+  // 1.1 applies everywhere; 110.2 applies to the air carrier Parts (Subchapter G)
+  const gParts = farToc.filter((p) => p.doc === 'far' && p.sc === 'G').map((p) => p.part);
+  await writeJSON(path.join(OUT, 'defs.json'), [
+    ...extractDefinitions(all.find((s) => s.id === '1.1')),
+    ...extractDefinitions(all.find((s) => s.id === '110.2')).map((d) => ({ ...d, src: '110.2', parts: gParts })),
+  ]);
   const manifest = {
     version: hash(manifestPacks.map((p) => p.hash).join('')),
     builtAt: new Date().toISOString(),

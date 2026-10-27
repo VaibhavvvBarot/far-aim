@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
-import { toc, type Toc, type TocSection } from '../data';
+import { toc, type Toc, type TocSection, type TocPart } from '../data';
 import { route, go } from '../store';
 import { Icon } from '../icons';
 import { GuideList } from './Guides';
 
 type D = 'guides' | 'far' | 'aim' | 'pcg' | 't49';
 const SEGS: { id: D; label: string }[] = [
-  { id: 'guides', label: 'Guides' }, { id: 'far', label: 'FAR' }, { id: 'aim', label: 'AIM' }, { id: 'pcg', label: 'Glossary' }, { id: 't49', label: 'NTSB 830' },
+  { id: 'guides', label: 'Guides' }, { id: 'far', label: 'FAR' }, { id: 'aim', label: 'AIM' }, { id: 'pcg', label: 'Glossary' }, { id: 't49', label: 'Title 49' },
 ];
 const ss = {
   get: (k: string) => { try { return sessionStorage.getItem(k); } catch { return null; } },
@@ -37,17 +37,8 @@ export function Browse({ initial }: { initial?: string | null }) {
       </div>
       {d === 'guides' && <GuideList />}
       {!t && d !== 'guides' && <p class="muted pad">Loading…</p>}
-      {t && (d === 'far' || d === 't49') && (
-        <ul class="list parts">
-          {t[d].map((p) => (
-            <li><a href={`#/p/${d === 't49' ? '49-' : ''}${p.part}`}>
-              <span class="num">Part {p.part}</span>
-              <span class="ttl">{p.title}{p.subparts.length > 0 && <span class="sub-count">{p.subparts.length} subparts</span>}</span>
-              <Icon name="chevron" size={18} />
-            </a></li>
-          ))}
-        </ul>
-      )}
+      {t && d === 't49' && <ul class="list parts">{t.t49.map((p) => <PartRow p={p} />)}</ul>}
+      {t && d === 'far' && <FarParts parts={t.far} />}
       {t && d === 'aim' && (
         <ul class="list tree">
           {t.aim.map((c) => (
@@ -87,6 +78,63 @@ export function Browse({ initial }: { initial?: string | null }) {
         </>
       )}
     </div>
+  );
+}
+
+// Parts most pilots and operators reach for, shown first
+const COMMON = ['1', '21', '43', '61', '67', '68', '71', '73', '91', '97', '103', '107', '110', '117', '119', '121', '125', '135', '141'];
+
+function PartRow({ p }: { p: TocPart }) {
+  return (
+    <li><a href={`#/p/${p.doc === 't49' ? '49-' : ''}${p.part}`}>
+      <span class="num">Part {p.part}</span>
+      <span class="ttl">{p.title}{p.subparts.length > 0 && <span class="sub-count">{p.subparts.length} subparts</span>}</span>
+      <Icon name="chevron" size={18} />
+    </a></li>
+  );
+}
+
+function FarParts({ parts }: { parts: TocPart[] }) {
+  const [q, setQ] = useState('');
+  const [open, setOpen] = useState<string[]>(() => { try { return JSON.parse(ss.get('farOpen') || '["common"]'); } catch { return ['common']; } });
+  const toggle = (k: string) => { const v = open.includes(k) ? open.filter((x) => x !== k) : [...open, k]; setOpen(v); ss.set('farOpen', JSON.stringify(v)); };
+  const groups = useMemo(() => {
+    const out: { key: string; label: string; title: string; parts: TocPart[] }[] = [
+      { key: 'common', label: '', title: 'Most used', parts: COMMON.map((n) => parts.find((p) => p.part === n)).filter(Boolean) as TocPart[] },
+    ];
+    for (const p of parts) {
+      const key = p.sc || '?';
+      let g = out.find((x) => x.key === key);
+      if (!g) out.push(g = { key, label: p.sc ? `Subchapter ${p.sc}` : '', title: p.scTitle || 'Other', parts: [] });
+      g.parts.push(p);
+    }
+    return out;
+  }, [parts]);
+  const f = q.trim().toLowerCase().replace(/^part\s*/, '');
+  const hits = f ? parts.filter((p) => p.part === f || p.part.startsWith(f) && /^\d+$/.test(f) || p.title.toLowerCase().includes(f)) : null;
+  return (
+    <>
+      <input class="filter-input" type="search" placeholder={`Find a Part (${parts.length} Parts)`} value={q} onInput={(e) => setQ((e.target as HTMLInputElement).value)} aria-label="Find a Part by number or title" />
+      {hits ? (
+        <ul class="list parts">{hits.map((p) => <PartRow p={p} />)}{!hits.length && <li class="muted pad">No Part matches.</li>}</ul>
+      ) : (
+        <ul class="list tree far-groups">
+          {groups.map((g) => {
+            const on = open.includes(g.key);
+            return (
+              <li class={on ? 'open' : ''}>
+                <button class="tree-row" aria-expanded={on} onClick={() => toggle(g.key)}>
+                  <span class="num">{g.key === 'common' ? '★' : g.key}</span>
+                  <span class="ttl">{g.title}<span class="sub-count">{g.parts.length} Parts</span></span>
+                  <Icon name={on ? 'up' : 'down'} size={18} />
+                </button>
+                {on && <ul class="list parts nested">{g.parts.map((p) => <PartRow p={p} />)}</ul>}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </>
   );
 }
 
