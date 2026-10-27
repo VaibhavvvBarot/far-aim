@@ -94,7 +94,9 @@ input, textarea { font: inherit; color: var(--ink); }
 .home { padding-bottom: 24px; }
 .home-head { padding: 22px 20px 6px; }
 .wordmark { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; font-size: 30px; letter-spacing: -0.02em; color: var(--ink); }
-.wordmark .icon { color: var(--far); transform: rotate(45deg); }
+.wordmark .logo { flex: none; border-radius: 8px; }
+.wordmark .mine { font-family: var(--serif); font-style: italic; font-weight: 600; color: #b08a45; }
+.owner-line { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 28px 16px 8px; color: var(--muted); font-size: 13px; }
 .omni { display: flex; align-items: center; gap: 8px; margin: 0 20px; padding: 0 6px 0 14px; height: 52px; border-radius: 14px; background: var(--surface); border: 1.5px solid var(--rule); color: var(--muted); }
 .home-head .omni { margin: 0; }
 .omni:focus-within { border-color: var(--far); }
@@ -514,3 +516,6 @@ del { background: var(--del-bg); color: var(--del); border-radius: 2px; }
 .guide-hit .g-title { font-weight: 600; }
 .guide-hit .g-blurb { color: var(--muted); font-size: 14px; }
 .doc-tag.guide { justify-self: start; color: var(--far); }
+
+.about-owner { display: flex; gap: 14px; align-items: center; }
+.about-owner .logo { flex: none; border-radius: 10px; }

@@ -1,3 +1,4 @@
+import { Logo, OWNER } from '../logo';
 import { useEffect, useState } from 'preact/hooks';
 import { manifest, type Manifest } from '../data';
 import { settings, annotations, refreshAnnotations, showToast, history, type Theme } from '../store';
@@ -151,8 +152,10 @@ export function SettingsView() {
 
       <section class="block about">
         <h2>About</h2>
+        <p class="about-owner"><Logo size={40} /><span><b>V’s FAR/AIM</b><br />Designed and built for {OWNER}. © {new Date().getFullYear()} {OWNER}. All rights reserved.</span></p>
         <p>This is a personal, unofficial copy of 14 CFR Chapter I (every FAA Part), 49 CFR Parts 175, 830 and 1552, the Aeronautical Information Manual and the Pilot/Controller Glossary, built from the eCFR and FAA websites. It can lag behind or contain parsing errors. Check the official text before relying on it.</p>
         <p class="muted">No accounts, no tracking. Everything you add stays on this device.</p>
+        <p class="muted small">The regulation, AIM and glossary text are U.S. government works and belong to everyone. The copyright covers this app's name, logo, design and code.</p>
       </section>
     </div>
   );

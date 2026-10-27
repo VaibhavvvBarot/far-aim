@@ -1,3 +1,4 @@
+import { Logo, OWNER } from '../logo';
 import { useEffect, useState } from 'preact/hooks';
 import { manifest, changes, type Manifest, type Change, parseJump, label } from '../data';
 import { history, lastRead, go } from '../store';
@@ -46,7 +47,7 @@ export function Home() {
   return (
     <div class="home">
       <header class="home-head">
-        <h1 class="wordmark"><Icon name="plane" size={26} /> FAR/AIM</h1>
+        <h1 class="wordmark"><Logo size={34} /><span><span class="mine">V’s</span> FAR/AIM</span></h1>
         <Omnibox autofocus={false} onSubmit={(q) => {
           const j = parseJump(q);
           if (j) go(j.kind === 'part' ? `p/${j.id}` : `s/${j.id}`);
@@ -115,6 +116,7 @@ export function Home() {
           <p>Last checked {new Date(m.checkedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}.</p>
         </footer>
       )}
+      <p class="owner-line"><Logo size={16} /> © {new Date().getFullYear()} {OWNER}. All rights reserved.</p>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-# FAR/AIM
+# V’s FAR/AIM
 
 A personal FAR/AIM reader for the iPad Mini. It's free, works offline and updates itself every night.
 
@@ -38,3 +38,8 @@ npm run data     # fetch the regulations (needs internet)
 npm run dev      # local dev server
 npm run build    # production build in dist/
 ```
+
+
+## Copyright
+
+© 2026 Vaibhav Barot. All rights reserved. The app's name, compass-rose logo, design and code are his; see [LICENSE](LICENSE). The regulation and AIM text it shows are U.S. government works.
