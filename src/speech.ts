@@ -20,11 +20,24 @@ const ROBOTIC = /^(Albert|Bad News|Bahh|Bells|Boing|Bubbles|Cellos|Good News|Jes
 // Natural-sounding voices that are on most iPads (best first)
 const GOOD = ['Ava', 'Zoe', 'Evan', 'Nathan', 'Joelle', 'Noelle', 'Allison', 'Susan', 'Tom', 'Samantha', 'Nicky', 'Aaron', 'Daniel', 'Karen', 'Moira', 'Serena', 'Tessa', 'Arthur', 'Martha', 'Catherine', 'Gordon', 'Lee'];
 
+// iPadOS often gives several voices the same name ("Samantha" twice); the quality is in voiceURI,
+// e.g. com.apple.voice.enhanced.en-US.Samantha
+export function voiceQuality(v: SpeechSynthesisVoice): 'Premium' | 'Enhanced' | '' {
+  const k = `${v.name} ${v.voiceURI}`;
+  return /premium/i.test(k) ? 'Premium' : /enhanced/i.test(k) ? 'Enhanced' : '';
+}
+export function voiceLabel(v: SpeechSynthesisVoice) {
+  const q = voiceQuality(v);
+  const name = v.name.replace(/\s*\((Premium|Enhanced)\)\s*/i, '');
+  return `${name}${q ? ` ${q}` : ''} (${v.lang})`;
+}
+
 export function voiceScore(v: SpeechSynthesisVoice) {
   if (ROBOTIC.test(v.name)) return -100;
   let s = 0;
-  if (/premium/i.test(v.name)) s += 40;
-  else if (/enhanced/i.test(v.name)) s += 25;
+  const q = voiceQuality(v);
+  if (q === 'Premium') s += 40;
+  else if (q === 'Enhanced') s += 25;
   if (/siri/i.test(v.name)) s += 30;
   const g = GOOD.findIndex((n) => v.name.startsWith(n));
   if (g >= 0) s += 20 - g * 0.5;

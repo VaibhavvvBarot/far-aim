@@ -4,7 +4,7 @@ import { settings, annotations, refreshAnnotations, showToast, history, type The
 import { ann, kv, persist, type Annotation } from '../db';
 import { loadSrs, saveSrs } from '../srs';
 import { fmtDate } from './Home';
-import { voices, speechPrefs, setSpeechPrefs, supported as canSpeak, play, stop, bestVoice, isRobotic } from '../speech';
+import { voices, speechPrefs, setSpeechPrefs, supported as canSpeak, play, stop, bestVoice, isRobotic, voiceLabel } from '../speech';
 
 const THEMES: { id: Theme; label: string }[] = [
   { id: 'auto', label: 'Match iPad' }, { id: 'light', label: 'Light' }, { id: 'sepia', label: 'Sepia' }, { id: 'dark', label: 'Dark' }, { id: 'night', label: 'Night red' },
@@ -83,8 +83,8 @@ export function SettingsView() {
           <>
             <label class="field"><span class="field-l">iPad voice</span>
               <select class="select" value={sp.voice} onChange={(e) => setSpeech({ voice: (e.target as HTMLSelectElement).value })}>
-                <option value="">Automatic{bestVoice() ? ` (${bestVoice()!.name})` : ''}</option>
-                {vlist.filter((v) => !isRobotic(v)).map((v) => <option value={v.voiceURI}>{v.name} ({v.lang})</option>)}
+                <option value="">Automatic{bestVoice() ? ` (${voiceLabel(bestVoice()!).replace(/ \([a-z]{2}-[A-Z]{2}\)$/, '')})` : ''}</option>
+                {vlist.filter((v) => !isRobotic(v)).map((v) => <option value={v.voiceURI}>{voiceLabel(v)}</option>)}
               </select>
             </label>
             {!vlist.some((v) => /premium|enhanced/i.test(v.name)) && (
@@ -93,8 +93,9 @@ export function SettingsView() {
                 <ol>
                   <li>Open the iPad's Settings app, then Accessibility, then Spoken Content (in some versions, Read &amp; Speak).</li>
                   <li>Tap Voices, then English, pick Ava, Zoe or Evan and download Premium.</li>
-                  <li>Close this app completely, open it again and choose that voice here.</li>
+                  <li>Close this app completely (swipe it away in the app switcher), open it again and choose that voice here.</li>
                 </ol>
+                <p class="small muted">Voices are stored on each device. One downloaded on your iPhone won't show up on the iPad.</p>
               </div>
             )}
           </>
