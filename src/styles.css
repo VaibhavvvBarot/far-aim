@@ -519,3 +519,22 @@ del { background: var(--del-bg); color: var(--del); border-radius: 2px; }
 
 .about-owner { display: flex; gap: 14px; align-items: center; }
 .about-owner .logo { flex: none; border-radius: 10px; }
+
+/* Reg-number flashcards */
+.doc-body p.carded { box-shadow: -10px 0 0 -7px var(--far); }
+.flashcard.reg { text-align: center; padding: 30px 22px 22px; }
+.flashcard.reg .fc-src { text-transform: uppercase; letter-spacing: .06em; font-size: 12px; font-weight: 700; }
+.fc-num { font-family: var(--ui); font-size: 34px; font-weight: 700; letter-spacing: -0.01em; color: var(--far); margin: 6px 0; }
+.flashcard[data-doc='aim'] .fc-num { color: var(--aim); }
+.fc-meaning { font-family: var(--serif); font-size: calc(var(--read-size) * 1.15); line-height: 1.45; margin: 6px 0; }
+.fc-back { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--rule); display: grid; gap: 10px; justify-items: center; animation: fade-up .2s ease-out; }
+.fc-answer input { width: min(100%, 22em); margin-top: 14px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--rule); background: var(--bg); color: var(--ink); font: inherit; font-size: 18px; text-align: center; }
+.fc-check { display: block; font-size: 14px; font-weight: 600; margin-top: 4px; }
+.fc-check.ok { color: #2e7d4f; }
+.fc-check.no { color: var(--muted); font-weight: 500; }
+.fc-edit { width: 100%; }
+.fc-edit textarea { width: 100%; box-sizing: border-box; font: inherit; padding: 10px; border-radius: 10px; border: 1px solid var(--rule); background: var(--bg); color: var(--ink); }
+.fc-rule { width: 100%; text-align: left; font-size: 15px; color: var(--muted); }
+.fc-rule summary { cursor: pointer; text-align: center; }
+.fc-rule p { font-family: var(--serif); color: var(--ink); line-height: 1.5; }
+.filters.center { justify-content: center; }

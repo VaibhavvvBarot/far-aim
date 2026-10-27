@@ -1,3 +1,4 @@
+import { paraAt, paragraphs } from '../paras';
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { getSection, neighbors, label, docName, stem, type Section } from '../data';
 import { annotations, saveAnnotation, deleteAnnotation, recordVisit, saveLastRead, lastRead, route, go, showToast, settings, wide } from '../store';
@@ -91,7 +92,8 @@ export function Reader({ id }: { id: string }) {
 
   const mine = annotations.value.filter((a) => a.sid === id);
   const hls = mine.filter((a): a is Highlight => a.type === 'hl');
-  const bm = mine.find((a): a is Bookmark => a.type === 'bm');
+  const bm = mine.find((a): a is Bookmark => a.type === 'bm' && !a.para);
+  const paraBms = mine.filter((a): a is Bookmark => a.type === 'bm' && !!a.para);
   const note = mine.find((a): a is SectionNote => a.type === 'note');
 
   // Put the section text in place, paint highlights, underline defined terms, build the outline
@@ -118,6 +120,16 @@ export function Reader({ id }: { id: string }) {
     setOutline(buildOutline(el, sec.doc));
     markDefinitions(el, sec.id, sec.doc === 'far' ? sec.part : undefined);
   }, [sec, JSON.stringify(hls)]);
+
+  // A small mark beside paragraphs you've made into flashcards
+  useEffect(() => {
+    const el = body.current;
+    if (!el || !sec) return;
+    el.querySelectorAll('.carded').forEach((n) => n.classList.remove('carded'));
+    if (!paraBms.length) return;
+    const want = new Set(paraBms.map((b) => sec.num + b.para));
+    for (const p of paragraphs(el, sec.num)) if (want.has(p.cite)) p.el.classList.add('carded');
+  }, [sec, JSON.stringify(hls), paraBms.map((b) => b.para).join()]);
 
   // Where to start: search term, where you were this session, last time, or the top
   useEffect(() => {
@@ -255,6 +267,20 @@ export function Reader({ id }: { id: string }) {
       const i = blocks.findIndex((b) => b.el.contains(t));
       if (i >= 0) jump(i - sp.index);
     }
+  };
+
+  // Bookmark the paragraph the selection is in, as a reg-number flashcard (e.g. 91.211(b))
+  const addParaCard = async () => {
+    const r = document.getSelection()?.rangeCount ? document.getSelection()!.getRangeAt(0) : null;
+    const el = body.current;
+    if (!r || !el || !sec) return;
+    const p = paraAt(el, sec.num, r.startContainer);
+    const para = p ? p.cite.slice(sec.num.length) : '';
+    clearSel();
+    if (!para) { if (!bm) await saveAnnotation({ id: uid(), type: 'bm', sid: id, created: Date.now() }); showToast(`Flashcard added: ${label(sec)}`); return; }
+    if (paraBms.some((b) => b.para === para)) { showToast(`${label(sec)}${para} is already a flashcard`); return; }
+    await saveAnnotation({ id: uid(), type: 'bm', sid: id, para, created: Date.now() });
+    showToast(`Flashcard added: ${label(sec)}${para}`);
   };
 
   const toggleBookmark = async () => {
@@ -402,6 +428,7 @@ export function Reader({ id }: { id: string }) {
           {COLORS.map((c) => <button class={`swatch c-${c.id}`} aria-label={`Highlight ${c.name.toLowerCase()}`} onClick={() => addHl(c.id)} />)}
           <span class="sep" />
           <button class="bar-btn" onClick={() => addHl('yellow', true)}>Note</button>
+          {(sec.doc === 'far' || sec.doc === 't49') && <button class="bar-btn" onClick={addParaCard}>Flashcard</button>}
           <button class="bar-btn" onClick={async () => { await navigator.clipboard?.writeText(pending.exact); showToast('Copied'); clearSel(); }}>Copy</button>
           <button class="icon-btn" aria-label="Cancel" onClick={clearSel}><Icon name="close" /></button>
         </div>

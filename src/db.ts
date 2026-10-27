@@ -17,7 +17,8 @@ export interface Bookmark {
   id: string;
   type: 'bm';
   sid: string;
-  name?: string;
+  para?: string; // a paragraph inside the section, e.g. "(b)" or "(d)(2)"; none = whole section
+  name?: string; // your own words for what it is (used on reg-number flashcards)
   tags?: string[];
   created: number;
 }

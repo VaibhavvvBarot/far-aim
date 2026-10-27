@@ -39,7 +39,7 @@ export function Home() {
     })();
   }, []);
   const [due, setDue] = useState<number | null>(null);
-  const hlCount = annotations.value.filter((a) => a.type === 'hl').length;
+  const hlCount = annotations.value.filter((a) => a.type === 'hl' || a.type === 'bm').length;
   useEffect(() => { dueCount().then(setDue); }, [hlCount]);
   const recent = history.value.slice(0, 6);
   const lr = lastRead.value && history.value.find((h) => h.id === lastRead.value!.id);
@@ -71,8 +71,8 @@ export function Home() {
         <a class="review-card" href="#/review">
           <Icon name="cards" size={26} />
           <span class="rc-text">
-            <span class="rc-title">{due ? `${due} ${due === 1 ? 'card' : 'cards'} to review` : 'Review your highlights'}</span>
-            <span class="rc-sub">{due ? 'Flashcards from your highlights' : 'All caught up. Practise any time.'}</span>
+            <span class="rc-title">{due ? `${due} ${due === 1 ? 'card' : 'cards'} to review` : 'Flashcards'}</span>
+            <span class="rc-sub">{due ? 'Reg numbers from your bookmarks, wording from your highlights' : 'All caught up. Practise any time.'}</span>
           </span>
           <Icon name="chevron" size={18} />
         </a>

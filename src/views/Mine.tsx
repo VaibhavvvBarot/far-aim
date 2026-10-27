@@ -48,7 +48,7 @@ export function Mine() {
 
   return (
     <div class="mine">
-      <header class="pane-head"><h1>My stuff</h1>{counts.hl > 0 && <a class="btn small-btn review-btn" href="#/review"><Icon name="cards" size={18} /> Review</a>}</header>
+      <header class="pane-head"><h1>My stuff</h1>{(counts.hl > 0 || counts.bm > 0) && <a class="btn small-btn review-btn" href="#/review"><Icon name="cards" size={18} /> Review</a>}</header>
       <div class="filters" role="tablist">
         <button role="tab" aria-selected={kind === 'hl'} class={'seg' + (kind === 'hl' ? ' on' : '')} onClick={() => setKind('hl')}>Highlights {counts.hl || ''}</button>
         <button role="tab" aria-selected={kind === 'bm'} class={'seg' + (kind === 'bm' ? ' on' : '')} onClick={() => setKind('bm')}>Bookmarks {counts.bm || ''}</button>
@@ -65,7 +65,7 @@ export function Mine() {
       {!items.length && (
         <div class="pad empty">
           {kind === 'hl' && <p>Select any text while reading to highlight it. Your highlights collect here.</p>}
-          {kind === 'bm' && <p>Tap the bookmark icon at the top of a section to keep it here.</p>}
+          {kind === 'bm' && <p>Tap the bookmark icon at the top of a section to keep it here, or select words in a paragraph and tap Flashcard. Bookmarks become reg-number flashcards.</p>}
           {kind === 'note' && <p>Add a note to a section with the note icon, or to a highlight by tapping it.</p>}
         </div>
       )}
@@ -76,11 +76,13 @@ export function Mine() {
           const head = (
             <span class="r-top"><span class="num">{label(i)}</span><span class="ttl-inline">{i.title}</span></span>
           );
-          if (a.type === 'bm') return (
+          if (a.type === 'bm') {
+            const bhead = a.para ? <span class="r-top"><span class="num">{label(i)}{a.para}</span><span class="ttl-inline">{i.title}</span></span> : head;
+            return (
             <li>
               <div class="ann-row">
                 <a href={`#/s/${a.sid}`} class="ann-main">
-                  {a.name ? <><span class="ttl">{a.name}</span>{head}</> : <>{head}</>}
+                  {a.name ? <><span class="ttl">{a.name}</span>{bhead}</> : <>{bhead}</>}
                 </a>
                 <button class="icon-btn" aria-label="Rename bookmark" onClick={() => setRenaming(a.id)}><Icon name="note" size={18} /></button>
                 <button class="icon-btn" aria-label="Remove bookmark" onClick={() => deleteAnnotation(a.id)}><Icon name="trash" size={18} /></button>
@@ -91,12 +93,12 @@ export function Mine() {
                   const v = ((e.currentTarget as HTMLFormElement).elements.namedItem('n') as HTMLInputElement).value.trim();
                   await saveAnnotation({ ...a, name: v || undefined }); setRenaming(null);
                 }}>
-                  <input name="n" defaultValue={a.name || ''} placeholder={`Name, e.g. "Night currency"`} autofocus />
+                  <input name="n" defaultValue={a.name || ''} placeholder={`What it covers, e.g. "Oxygen, pressurized aircraft"`} autofocus />
                   <button class="btn">Save</button>
                 </form>
               )}
             </li>
-          );
+          ); }
           if (a.type === 'note') return (
             <li><a href={`#/s/${a.sid}`} class="ann-main">{head}<span class="note-text">{a.note}</span></a></li>
           );
