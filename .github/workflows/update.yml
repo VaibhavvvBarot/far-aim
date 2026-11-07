@@ -107,8 +107,18 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
+      # GitHub Pages sometimes sits in its queue for a long time; wait up to
+      # 30 minutes, and if it still fails, try once more before giving up
       - id: deploy
         uses: actions/deploy-pages@v4
+        continue-on-error: true
+        with:
+          timeout: 1800000
+      - name: Try publishing again
+        if: steps.deploy.outcome == 'failure'
+        uses: actions/deploy-pages@v4
+        with:
+          timeout: 1800000
 
       - name: Mark the run failed if new data was rejected
         if: steps.rollback.outputs.rolled_back == 'true'
