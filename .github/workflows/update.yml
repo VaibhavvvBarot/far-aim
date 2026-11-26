@@ -33,8 +33,8 @@ jobs:
   update:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: npm
@@ -103,18 +103,31 @@ jobs:
           for i in $(seq 1 30); do curl -sf http://localhost:4173/far-aim/ >/dev/null && break; sleep 1; done
           node tests/smoke.mjs http://localhost:4173/far-aim/
 
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: dist
-      # GitHub Pages sometimes sits in its queue past deploy-pages' 10-minute
-      # limit (it can't wait longer); a second attempt then goes straight through
+      # Publishing to GitHub Pages fails now and then on GitHub's side: a
+      # deployment stuck in the queue past the 10-minute limit, or the
+      # artifact that was just uploaded not showing up yet ("No artifacts
+      # named github-pages"). Try up to three times, waiting in between.
       - id: deploy
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
         continue-on-error: true
-      - name: Try publishing again
+      - name: Wait before trying again
         if: steps.deploy.outcome == 'failure'
-        uses: actions/deploy-pages@v4
+        run: sleep 90
+      - id: deploy2
+        name: Try publishing again
+        if: steps.deploy.outcome == 'failure'
+        uses: actions/deploy-pages@v5
+        continue-on-error: true
+      - name: Wait longer before the last try
+        if: steps.deploy.outcome == 'failure' && steps.deploy2.outcome == 'failure'
+        run: sleep 300
+      - name: Last try at publishing
+        if: steps.deploy.outcome == 'failure' && steps.deploy2.outcome == 'failure'
+        uses: actions/deploy-pages@v5
 
       - name: Mark the run failed if new data was rejected
         if: steps.rollback.outputs.rolled_back == 'true'
